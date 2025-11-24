@@ -63,8 +63,12 @@
   <div class="test-section">
     <h2>🚫 Should Block</h2>
     <a href="phishing-basic.html" class="test-link severity-critical">
-      Phishing Page
+      Phishing Page - Immediate Load
       <div class="description">Fake Microsoft 365 login form posting to attacker domain</div>
+    </a>
+    <a href="phishing-delayed-load.html" class="test-link severity-critical">
+      Phishing Page - Delayed Load ⏱️ NEW
+      <div class="description">Microsoft 365 phishing with late-loading content (tests threat-triggered re-scanning)</div>
     </a>
   </div>
 
@@ -83,7 +87,22 @@
       <li>Click on each test link to verify detection behavior</li>
       <li>Critical/High threats should trigger blocking or warning</li>
       <li>Safe pages should not trigger any alerts</li>
+      <li>For delayed-load test: Watch browser console for timing logs</li>
       <li>Check the extension popup for detection details</li>
+    </ol>
+    
+    <h3>Testing Threat-Triggered Re-scanning (Delayed Load Test)</h3>
+    <ol>
+      <li>Open browser DevTools console (F12) before clicking the delayed-load test</li>
+      <li>Click "Phishing Page - Delayed Load" link</li>
+      <li>Observe the console logs showing:
+        <ul>
+          <li>Initial scan detecting basic threat (bad URL structure)</li>
+          <li>Threat-triggered re-scan #1 at ~800ms catching more indicators</li>
+          <li>Threat-triggered re-scan #2 at ~2000ms catching all late-loading content</li>
+        </ul>
+      </li>
+      <li>Extension should block the page after detecting all phishing indicators</li>
     </ol>
   </div>
 </body>
