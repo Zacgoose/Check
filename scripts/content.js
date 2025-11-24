@@ -31,8 +31,13 @@ if (window.checkExtensionLoaded) {
   let showingBanner = false; // Flag to prevent DOM monitoring loops when showing banners
   const MAX_SCANS = 5; // Prevent infinite scanning - reduced for performance
   const SCAN_COOLDOWN = 1200; // 1200ms between scans - increased for performance
+  const THREAT_TRIGGERED_COOLDOWN = 500; // Shorter cooldown for threat-triggered re-scans
   const WARNING_THRESHOLD = 3; // Block if 4+ warning threats found (escalation threshold)
   let initialBody; // Reference to the initial body element
+  let lastPageSourceHash = null; // Hash of page source to detect real changes
+  let threatTriggeredRescanCount = 0; // Track threat-triggered re-scans
+  const MAX_THREAT_TRIGGERED_RESCANS = 2; // Max follow-up scans when threats detected
+  let scheduledRescanTimeout = null; // Track scheduled re-scan timeout
 
   const regexCache = new Map();
   let cachedPageSource = null;
@@ -158,6 +163,88 @@ if (window.checkExtensionLoaded) {
     cachedPageSourceTime = 0;
     domQueryCache.delete(document);
     cachedStylesheetAnalysis = null;
+  }
+
+  /**
+   * Compute simple hash of page source to detect changes
+   * Uses string length and character sampling for performance
+   */
+  function computePageSourceHash(pageSource) {
+    if (!pageSource) return null;
+    
+    // Simple hash: length + sample characters at key positions
+    const len = pageSource.length;
+    const samples = [];
+    const positions = [
+      Math.floor(len * 0.1),
+      Math.floor(len * 0.3),
+      Math.floor(len * 0.5),
+      Math.floor(len * 0.7),
+      Math.floor(len * 0.9)
+    ];
+    
+    for (const pos of positions) {
+      if (pos < len) {
+        samples.push(pageSource.charCodeAt(pos));
+      }
+    }
+    
+    return `${len}:${samples.join(',')}`;
+  }
+
+  /**
+   * Check if page source has changed significantly
+   */
+  function hasPageSourceChanged() {
+    const currentSource = getPageSource();
+    const currentHash = computePageSourceHash(currentSource);
+    
+    if (!lastPageSourceHash) {
+      lastPageSourceHash = currentHash;
+      return false; // First check, no previous hash to compare
+    }
+    
+    const changed = currentHash !== lastPageSourceHash;
+    if (changed) {
+      logger.debug(`Page source changed: ${lastPageSourceHash} -> ${currentHash}`);
+      lastPageSourceHash = currentHash;
+    }
+    
+    return changed;
+  }
+
+  /**
+   * Schedule threat-triggered re-scans with progressive delays
+   * Automatically re-scans when threats detected to catch late-loading content
+   */
+  function scheduleThreatTriggeredRescan(threatCount) {
+    // Clear any existing scheduled re-scan
+    if (scheduledRescanTimeout) {
+      clearTimeout(scheduledRescanTimeout);
+      scheduledRescanTimeout = null;
+    }
+    
+    // Don't schedule if we've reached the limit
+    if (threatTriggeredRescanCount >= MAX_THREAT_TRIGGERED_RESCANS) {
+      logger.debug(`Max threat-triggered re-scans (${MAX_THREAT_TRIGGERED_RESCANS}) reached`);
+      return;
+    }
+    
+    // Progressive delays: 800ms for first re-scan, 2000ms for second
+    const delays = [800, 2000];
+    const delay = delays[threatTriggeredRescanCount] || 2000;
+    
+    logger.log(
+      `⏱️ Scheduling threat-triggered re-scan #${threatTriggeredRescanCount + 1} in ${delay}ms (${threatCount} threat(s) detected)`
+    );
+    
+    threatTriggeredRescanCount++;
+    
+    scheduledRescanTimeout = setTimeout(() => {
+      logger.log(`🔄 Running threat-triggered re-scan #${threatTriggeredRescanCount}`);
+      runProtection(true);
+      scheduledRescanTimeout = null;
+    }, delay);
   }
 
   function analyzeStylesheets() {
@@ -2497,15 +2584,30 @@ if (window.checkExtensionLoaded) {
       // Rate limiting for DOM change re-runs
       if (isRerun) {
         const now = Date.now();
-        if (now - lastScanTime < SCAN_COOLDOWN || scanCount >= MAX_SCANS) {
-          logger.debug("Scan rate limited or max scans reached");
+        const isThreatTriggeredRescan = threatTriggeredRescanCount > 0 && threatTriggeredRescanCount <= MAX_THREAT_TRIGGERED_RESCANS;
+        const cooldown = isThreatTriggeredRescan ? THREAT_TRIGGERED_COOLDOWN : SCAN_COOLDOWN;
+        
+        if (now - lastScanTime < cooldown || scanCount >= MAX_SCANS) {
+          logger.debug(`Scan rate limited (cooldown: ${cooldown}ms) or max scans reached`);
           return;
         }
+        
+        // Check if page source actually changed
+        if (!hasPageSourceChanged() && !isThreatTriggeredRescan) {
+          logger.debug("Page source unchanged, skipping re-scan");
+          return;
+        }
+        
         lastScanTime = now;
         scanCount++;
       } else {
         protectionActive = true;
         scanCount = 1;
+        threatTriggeredRescanCount = 0; // Reset counter on initial run
+        
+        // Initialize page source hash
+        const currentSource = getPageSource();
+        lastPageSourceHash = computePageSourceHash(currentSource);
       }
 
       logger.log(
@@ -3017,6 +3119,11 @@ if (window.checkExtensionLoaded) {
               showWarningBanner(`SUSPICIOUS CONTENT DETECTED: ${reason}`, {
                 threats: warningThreats,
               });
+              
+              // Schedule threat-triggered re-scan to catch additional late-loading threats
+              if (!isRerun && warningThreats.length > 0) {
+                scheduleThreatTriggeredRescan(warningThreats.length);
+              }
             }
 
             const redirectHostname = extractRedirectHostname(location.href);
@@ -3531,6 +3638,11 @@ if (window.checkExtensionLoaded) {
           phishingIndicators: criticalThreats.map((t) => t.id),
         };
 
+        // Schedule threat-triggered re-scan to catch additional late-loading threats
+        if (!isRerun && criticalThreats.length > 0) {
+          scheduleThreatTriggeredRescan(criticalThreats.length);
+        }
+
         if (protectionEnabled) {
           logger.error(
             "🛡️ PROTECTION ACTIVE: Blocking page due to critical phishing indicators"
@@ -3761,6 +3873,11 @@ if (window.checkExtensionLoaded) {
               setupDynamicScriptMonitoring();
             }
           }
+          
+          // Schedule threat-triggered re-scan for high/medium threats
+          if (!isRerun && allThreats.length > 0) {
+            scheduleThreatTriggeredRescan(allThreats.length);
+          }
         } else {
           logger.warn(`⚠️ ANALYSIS: MEDIUM THREAT detected - ${reason}`);
           if (protectionEnabled) {
@@ -3779,6 +3896,11 @@ if (window.checkExtensionLoaded) {
           if (!isRerun) {
             setupDOMMonitoring();
             setupDynamicScriptMonitoring();
+          }
+          
+          // Schedule threat-triggered re-scan for medium threats
+          if (!isRerun && allThreats.length > 0) {
+            scheduleThreatTriggeredRescan(allThreats.length);
           }
         }
 
@@ -4124,6 +4246,13 @@ if (window.checkExtensionLoaded) {
         domObserver.disconnect();
         domObserver = null;
         logger.log("DOM monitoring stopped");
+      }
+      
+      // Also clear any scheduled threat-triggered re-scans
+      if (scheduledRescanTimeout) {
+        clearTimeout(scheduledRescanTimeout);
+        scheduledRescanTimeout = null;
+        logger.log("Cleared scheduled threat-triggered re-scan");
       }
     } catch (error) {
       logger.error("Failed to stop DOM monitoring:", error.message);
@@ -5259,6 +5388,13 @@ if (window.checkExtensionLoaded) {
   window.addEventListener("beforeunload", () => {
     try {
       stopDOMMonitoring();
+      
+      // Clear any scheduled re-scans
+      if (scheduledRescanTimeout) {
+        clearTimeout(scheduledRescanTimeout);
+        scheduledRescanTimeout = null;
+      }
+      
       protectionActive = false;
     } catch (error) {
       logger.error("Cleanup failed:", error.message);
