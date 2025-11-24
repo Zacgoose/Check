@@ -190,7 +190,7 @@ if (window.checkExtensionLoaded) {
    * Check if page source has changed significantly
    */
   function hasPageSourceChanged() {
-    const currentSource = getPageSource();
+    const currentSource = document.documentElement.outerHTML; // Direct access to bypass cache
     const currentHash = computePageSourceHash(currentSource);
     
     if (!lastPageSourceHash) {
