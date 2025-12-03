@@ -102,123 +102,148 @@ const storageAPI = {
     }
   },
   
-  session: {
+  session: (() => {
     // Session storage fallback for Firefox
     // Uses local storage with __session__ prefix and in-memory cleanup
-    _sessionPrefix: '__session__',
-    _sessionKeys: new Set(),
+    const _sessionPrefix = '__session__';
+    const _sessionKeys = new Set();
+    let _cleanupComplete = !isFirefox; // Chrome doesn't need cleanup
+    let _cleanupPromise = null;
     
-    get: async (keys) => {
-      // Chrome has native session storage
-      if (isChrome && browserAPI.storage.session) {
-        return new Promise((resolve, reject) => {
-          browserAPI.storage.session.get(keys, (result) => {
-            if (browserAPI.runtime.lastError) {
-              reject(new Error(browserAPI.runtime.lastError.message));
-            } else {
-              resolve(result);
-            }
+    // Ensure cleanup is complete before operations
+    const ensureCleanup = async () => {
+      if (_cleanupComplete) return;
+      if (_cleanupPromise) return _cleanupPromise;
+      return Promise.resolve();
+    };
+    
+    return {
+      // Note: These methods should not be destructured as they rely on closure scope
+      get: async (keys) => {
+        // Wait for cleanup to complete in Firefox
+        await ensureCleanup();
+        
+        // Chrome has native session storage
+        if (isChrome && browserAPI.storage.session) {
+          return new Promise((resolve, reject) => {
+            browserAPI.storage.session.get(keys, (result) => {
+              if (browserAPI.runtime.lastError) {
+                reject(new Error(browserAPI.runtime.lastError.message));
+              } else {
+                resolve(result);
+              }
+            });
           });
-        });
-      }
-      
-      // Firefox fallback: use local storage with session prefix
-      const prefixedKeys = Array.isArray(keys) 
-        ? keys.map(k => this._sessionPrefix + k)
-        : (typeof keys === 'string' ? this._sessionPrefix + keys : null);
-      
-      if (prefixedKeys === null) {
-        // Get all session keys
-        const allKeys = Array.from(this._sessionKeys);
-        const result = await storageAPI.local.get(allKeys);
-        const unprefixed = {};
-        for (const [key, value] of Object.entries(result)) {
-          unprefixed[key.replace(this._sessionPrefix, '')] = value;
         }
-        return unprefixed;
-      }
-      
-      const result = await storageAPI.local.get(prefixedKeys);
-      const unprefixed = {};
-      
-      if (Array.isArray(prefixedKeys)) {
-        for (const prefixedKey of prefixedKeys) {
-          const originalKey = prefixedKey.replace(this._sessionPrefix, '');
-          if (prefixedKey in result) {
-            unprefixed[originalKey] = result[prefixedKey];
+        
+        // Firefox fallback: use local storage with session prefix
+        const prefixedKeys = Array.isArray(keys) 
+          ? keys.map(k => _sessionPrefix + k)
+          : (typeof keys === 'string' ? _sessionPrefix + keys : null);
+        
+        if (prefixedKeys === null) {
+          // Get all session keys
+          const allKeys = Array.from(_sessionKeys);
+          const result = await storageAPI.local.get(allKeys);
+          const unprefixed = {};
+          for (const [key, value] of Object.entries(result)) {
+            unprefixed[key.replace(_sessionPrefix, '')] = value;
+          }
+          return unprefixed;
+        }
+        
+        const result = await storageAPI.local.get(prefixedKeys);
+        const unprefixed = {};
+        
+        if (Array.isArray(prefixedKeys)) {
+          for (const prefixedKey of prefixedKeys) {
+            const originalKey = prefixedKey.replace(_sessionPrefix, '');
+            if (prefixedKey in result) {
+              unprefixed[originalKey] = result[prefixedKey];
+            }
+          }
+        } else {
+          const originalKey = prefixedKeys.replace(_sessionPrefix, '');
+          if (prefixedKeys in result) {
+            unprefixed[originalKey] = result[prefixedKeys];
           }
         }
-      } else {
-        const originalKey = prefixedKeys.replace(this._sessionPrefix, '');
-        if (prefixedKeys in result) {
-          unprefixed[originalKey] = result[prefixedKeys];
+        
+        return unprefixed;
+      },
+      
+      set: async (items) => {
+        // Wait for cleanup to complete in Firefox
+        await ensureCleanup();
+        
+        // Chrome has native session storage
+        if (isChrome && browserAPI.storage.session) {
+          return new Promise((resolve, reject) => {
+            browserAPI.storage.session.set(items, () => {
+              if (browserAPI.runtime.lastError) {
+                reject(new Error(browserAPI.runtime.lastError.message));
+              } else {
+                resolve();
+              }
+            });
+          });
+        }
+        
+        // Firefox fallback: prefix keys and track them
+        const prefixed = {};
+        for (const [key, value] of Object.entries(items)) {
+          const prefixedKey = _sessionPrefix + key;
+          prefixed[prefixedKey] = value;
+          _sessionKeys.add(prefixedKey);
+        }
+        
+        return storageAPI.local.set(prefixed);
+      },
+      
+      remove: async (keys) => {
+        // Wait for cleanup to complete in Firefox
+        await ensureCleanup();
+        
+        // Chrome has native session storage
+        if (isChrome && browserAPI.storage.session) {
+          return new Promise((resolve, reject) => {
+            browserAPI.storage.session.remove(keys, () => {
+              if (browserAPI.runtime.lastError) {
+                reject(new Error(browserAPI.runtime.lastError.message));
+              } else {
+                resolve();
+              }
+            });
+          });
+        }
+        
+        // Firefox fallback: prefix keys and remove
+        const keysArray = Array.isArray(keys) ? keys : [keys];
+        const prefixedKeys = keysArray.map(k => _sessionPrefix + k);
+        
+        prefixedKeys.forEach(k => _sessionKeys.delete(k));
+        
+        return storageAPI.local.remove(prefixedKeys);
+      },
+      
+      // Initialize session cleanup on startup (Firefox only)
+      _initCleanup: async () => {
+        if (isFirefox) {
+          _cleanupPromise = (async () => {
+            // Clear all session data on startup
+            const allData = await storageAPI.local.get(null);
+            const sessionKeys = Object.keys(allData).filter(k => k.startsWith(_sessionPrefix));
+            if (sessionKeys.length > 0) {
+              await storageAPI.local.remove(sessionKeys);
+            }
+            _sessionKeys.clear();
+            _cleanupComplete = true;
+          })();
+          return _cleanupPromise;
         }
       }
-      
-      return unprefixed;
-    },
-    
-    set: async (items) => {
-      // Chrome has native session storage
-      if (isChrome && browserAPI.storage.session) {
-        return new Promise((resolve, reject) => {
-          browserAPI.storage.session.set(items, () => {
-            if (browserAPI.runtime.lastError) {
-              reject(new Error(browserAPI.runtime.lastError.message));
-            } else {
-              resolve();
-            }
-          });
-        });
-      }
-      
-      // Firefox fallback: prefix keys and track them
-      const prefixed = {};
-      for (const [key, value] of Object.entries(items)) {
-        const prefixedKey = this._sessionPrefix + key;
-        prefixed[prefixedKey] = value;
-        this._sessionKeys.add(prefixedKey);
-      }
-      
-      return storageAPI.local.set(prefixed);
-    },
-    
-    remove: async (keys) => {
-      // Chrome has native session storage
-      if (isChrome && browserAPI.storage.session) {
-        return new Promise((resolve, reject) => {
-          browserAPI.storage.session.remove(keys, () => {
-            if (browserAPI.runtime.lastError) {
-              reject(new Error(browserAPI.runtime.lastError.message));
-            } else {
-              resolve();
-            }
-          });
-        });
-      }
-      
-      // Firefox fallback: prefix keys and remove
-      const keysArray = Array.isArray(keys) ? keys : [keys];
-      const prefixedKeys = keysArray.map(k => this._sessionPrefix + k);
-      
-      prefixedKeys.forEach(k => this._sessionKeys.delete(k));
-      
-      return storageAPI.local.remove(prefixedKeys);
-    },
-    
-    // Initialize session cleanup on startup (Firefox only)
-    _initCleanup: async () => {
-      if (isFirefox) {
-        // Clear all session data on startup
-        const allData = await storageAPI.local.get(null);
-        const sessionKeys = Object.keys(allData).filter(k => k.startsWith(storageAPI.session._sessionPrefix));
-        if (sessionKeys.length > 0) {
-          await storageAPI.local.remove(sessionKeys);
-        }
-        storageAPI.session._sessionKeys.clear();
-      }
-    }
-  },
+    };
+  })(),
   
   managed: {
     get: (keys) => {

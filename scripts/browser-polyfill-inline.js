@@ -47,7 +47,10 @@
     const getStorage = (keys, callback) => {
       if (isFirefox) {
         // Firefox uses promises
-        browser.storage.local.get(keys).then(callback).catch(() => callback({}));
+        browser.storage.local.get(keys).then(callback).catch((err) => {
+          console.error('Firefox storage.local.get error:', err);
+          callback({});
+        });
       } else {
         // Chrome uses callbacks
         chrome.storage.local.get(keys, (result) => {
@@ -62,7 +65,10 @@
     
     const setStorage = (items, callback) => {
       if (isFirefox) {
-        browser.storage.local.set(items).then(() => callback && callback()).catch(() => callback && callback());
+        browser.storage.local.set(items).then(() => callback && callback()).catch((err) => {
+          console.error('Firefox storage.local.set error:', err);
+          callback && callback();
+        });
       } else {
         chrome.storage.local.set(items, callback);
       }
@@ -70,7 +76,10 @@
     
     const removeStorage = (keys, callback) => {
       if (isFirefox) {
-        browser.storage.local.remove(keys).then(() => callback && callback()).catch(() => callback && callback());
+        browser.storage.local.remove(keys).then(() => callback && callback()).catch((err) => {
+          console.error('Firefox storage.local.remove error:', err);
+          callback && callback();
+        });
       } else {
         chrome.storage.local.remove(keys, callback);
       }

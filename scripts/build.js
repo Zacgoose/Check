@@ -68,6 +68,9 @@ try {
     }
     
     console.log('');
+    console.log('Note: To restore to the original manifest from version control,');
+    console.log('      use: git checkout manifest.json');
+    console.log('');
     console.log('Test the extension:');
     console.log('  1. Open Chrome/Edge');
     console.log('  2. Go to chrome://extensions or edge://extensions');
