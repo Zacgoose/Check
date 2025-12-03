@@ -110,11 +110,29 @@ const storageAPI = {
     let _cleanupComplete = !isFirefox; // Chrome doesn't need cleanup
     let _cleanupPromise = null;
     
+    // Initialize cleanup (called externally)
+    const initCleanup = async () => {
+      if (isFirefox && !_cleanupPromise) {
+        _cleanupPromise = (async () => {
+          // Clear all session data on startup
+          const allData = await storageAPI.local.get(null);
+          const sessionKeys = Object.keys(allData).filter(k => k.startsWith(_sessionPrefix));
+          if (sessionKeys.length > 0) {
+            await storageAPI.local.remove(sessionKeys);
+          }
+          _sessionKeys.clear();
+          _cleanupComplete = true;
+        })();
+      }
+      return _cleanupPromise;
+    };
+    
     // Ensure cleanup is complete before operations
     const ensureCleanup = async () => {
       if (_cleanupComplete) return;
       if (_cleanupPromise) return _cleanupPromise;
-      return Promise.resolve();
+      // This shouldn't happen if initCleanup is called on load, but just in case
+      return initCleanup();
     };
     
     return {
@@ -226,22 +244,8 @@ const storageAPI = {
         return storageAPI.local.remove(prefixedKeys);
       },
       
-      // Initialize session cleanup on startup (Firefox only)
-      _initCleanup: async () => {
-        if (isFirefox) {
-          _cleanupPromise = (async () => {
-            // Clear all session data on startup
-            const allData = await storageAPI.local.get(null);
-            const sessionKeys = Object.keys(allData).filter(k => k.startsWith(_sessionPrefix));
-            if (sessionKeys.length > 0) {
-              await storageAPI.local.remove(sessionKeys);
-            }
-            _sessionKeys.clear();
-            _cleanupComplete = true;
-          })();
-          return _cleanupPromise;
-        }
-      }
+      // Exposed for external initialization
+      _initCleanup: initCleanup
     };
   })(),
   
