@@ -33,7 +33,7 @@
       },
       runtime: browser.runtime,
       tabs: browser.tabs,
-      action: browser.action || browser.browserAction,
+      action: browser.action,
       scripting: browser.scripting,
       webRequest: browser.webRequest,
       alarms: browser.alarms,
