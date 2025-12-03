@@ -33,21 +33,19 @@ if (window.checkExtensionLoaded) {
   const SCAN_COOLDOWN = 1200; // 1200ms between scans - increased for performance
   const THREAT_TRIGGERED_COOLDOWN = 500; // Shorter cooldown for threat-triggered re-scans
   const WARNING_THRESHOLD = 3; // Block if 4+ warning threats found (escalation threshold)
-  let initialBody; // Reference to the initial body element
+  const PHISHING_PROCESSING_TIMEOUT = 10000; // 10 second timeout for phishing indicator processing
+  const SLOW_PAGE_RESCAN_SKIP_THRESHOLD = 5000; // Don't re-scan if initial scan took > 5s
+  let lastProcessingTime = 0; // Track last phishing indicator processing time
   let lastPageSourceHash = null; // Hash of page source to detect real changes
   let threatTriggeredRescanCount = 0; // Track threat-triggered re-scans
   const MAX_THREAT_TRIGGERED_RESCANS = 2; // Max follow-up scans when threats detected
   let scheduledRescanTimeout = null; // Track scheduled re-scan timeout
-
+  const injectedElements = new Set(); // Global tracking for extension-injected elements
   const regexCache = new Map();
   let cachedPageSource = null;
   let cachedPageSourceTime = 0;
   const PAGE_SOURCE_CACHE_TTL = 1000;
-  const domQueryCache = new WeakMap();
-  let cachedStylesheetAnalysis = null;
-
-  // Console log capturing
-  let capturedLogs = [];
+  let capturedLogs = []; // Console log capturing
   const MAX_LOGS = 100; // Limit the number of stored logs
 
   // Override console methods to capture logs
@@ -158,13 +156,6 @@ if (window.checkExtensionLoaded) {
     return cachedPageSource;
   }
 
-  function clearPerformanceCaches() {
-    cachedPageSource = null;
-    cachedPageSourceTime = 0;
-    domQueryCache.delete(document);
-    cachedStylesheetAnalysis = null;
-  }
-
   /**
    * Compute reliable hash of page source to detect changes
    * Uses djb2 with intelligent sampling for performance + accuracy balance
@@ -224,6 +215,15 @@ if (window.checkExtensionLoaded) {
       return;
     }
     
+    // CRITICAL: Skip re-scan if initial scan was very slow (likely legitimate complex page)
+    if (lastProcessingTime > SLOW_PAGE_RESCAN_SKIP_THRESHOLD) {
+      logger.log(
+        `⏭️ Skipping threat-triggered re-scan - initial scan took ${lastProcessingTime}ms ` +
+        `(threshold: ${SLOW_PAGE_RESCAN_SKIP_THRESHOLD}ms). This is likely a legitimate complex application.`
+      );
+      return;
+    }
+    
     // Progressive delays: 800ms for first re-scan, 2000ms for second
     const delays = [800, 2000];
     const delay = delays[threatTriggeredRescanCount] || 2000;
@@ -241,32 +241,187 @@ if (window.checkExtensionLoaded) {
     }, delay);
   }
 
-  function analyzeStylesheets() {
-    if (cachedStylesheetAnalysis) return cachedStylesheetAnalysis;
-    const analysis = { hasMicrosoftCSS: false, cssContent: "", sheets: [] };
+  /**
+   * Register an element as injected by the extension
+   * MUST be called immediately after creating any DOM element
+   */
+  function registerInjectedElement(element) {
+    if (element && element.nodeType === Node.ELEMENT_NODE) {
+      injectedElements.add(element);
+      logger.debug(`Registered injected element: ${element.tagName}#${element.id || 'no-id'}`);
+    }
+  }
+
+  /**
+   * Get clean page source with all extension elements removed
+   * This is secure because it uses object references, not selectors
+   */
+  function getCleanPageSource() {
     try {
-      const styleSheets = Array.from(document.styleSheets);
-      for (const sheet of styleSheets) {
-        const sheetInfo = { href: sheet.href || "inline" };
-        if (sheet.href?.match(/msauth|msft|microsoft/i)) {
-          analysis.hasMicrosoftCSS = true;
-        }
-        try {
-          if (sheet.cssRules) {
-            analysis.cssContent +=
-              Array.from(sheet.cssRules)
-                .map((r) => r.cssText)
-                .join(" ") + " ";
-            sheetInfo.accessible = true;
-          }
-        } catch (e) {
-          sheetInfo.accessible = false;
-        }
-        analysis.sheets.push(sheetInfo);
+      // Fast path: if no injected elements, skip cloning
+      if (injectedElements.size === 0) {
+        return document.documentElement.outerHTML;
       }
-    } catch (e) {}
-    cachedStylesheetAnalysis = analysis;
-    return analysis;
+
+      // Clone the entire document
+      const docClone = document.documentElement.cloneNode(true);
+      
+      // Build a map of original nodes to cloned nodes
+      const nodeMap = new Map();
+      const buildNodeMap = (original, clone) => {
+        nodeMap.set(original, clone);
+        const originalChildren = Array.from(original.children || []);
+        const clonedChildren = Array.from(clone.children || []);
+        
+        for (let i = 0; i < originalChildren.length; i++) {
+          if (clonedChildren[i]) {
+            buildNodeMap(originalChildren[i], clonedChildren[i]);
+          }
+        }
+      };
+      
+      try {
+        buildNodeMap(document.documentElement, docClone);
+      } catch (buildMapError) {
+        logger.warn("Error building node map (likely SVG parsing issue), using fallback:", buildMapError.message);
+        // Fallback: return original HTML (extension elements will be included but it's better than crashing)
+        return document.documentElement.outerHTML;
+      }
+      
+      // Remove cloned versions of our injected elements
+      let removed = 0;
+      injectedElements.forEach(originalElement => {
+        try {
+          const clonedElement = nodeMap.get(originalElement);
+          if (clonedElement && clonedElement.parentNode) {
+            clonedElement.parentNode.removeChild(clonedElement);
+            removed++;
+          }
+        } catch (removeError) {
+          // Skip elements that can't be removed
+          logger.debug(`Could not remove element from clone: ${removeError.message}`);
+        }
+      });
+      
+      logger.debug(`Removed ${removed} extension elements from scan`);
+      
+      try {
+        return docClone.outerHTML;
+      } catch (serializeError) {
+        logger.warn("Error serializing cleaned DOM (SVG issue), using original:", serializeError.message);
+        return document.documentElement.outerHTML;
+      }
+    } catch (error) {
+      logger.error("Failed to get clean page source:", error.message);
+      // Ultimate fallback: return original HTML
+      return document.documentElement.outerHTML;
+    }
+  }
+
+  /**
+   * Get clean page text with extension elements removed
+   */
+  function getCleanPageText() {
+    try {
+      // Fast path: if no injected elements, skip cloning
+      if (injectedElements.size === 0) {
+        return document.body?.textContent || '';
+      }
+
+      // Create temporary container
+      const tempDiv = document.createElement('div');
+      tempDiv.style.display = 'none';
+      document.body.appendChild(tempDiv);
+      
+      try {
+        // Clone body
+        const bodyClone = document.body.cloneNode(true);
+        tempDiv.appendChild(bodyClone);
+        
+        // Remove our injected elements from the clone
+        injectedElements.forEach(originalElement => {
+          if (originalElement.isConnected) {
+            try {
+              // Find equivalent element in clone by traversing same path
+              const path = getElementPath(originalElement);
+              const clonedElement = getElementByPath(bodyClone, path);
+              if (clonedElement && clonedElement.parentNode) {
+                clonedElement.parentNode.removeChild(clonedElement);
+              }
+            } catch (pathError) {
+              // Skip elements that can't be found in clone
+              logger.debug(`Could not find element in clone: ${pathError.message}`);
+            }
+          }
+        });
+        
+        return bodyClone.textContent || '';
+      } catch (cloneError) {
+        logger.warn("Error cloning body for text extraction (SVG issue), using original:", cloneError.message);
+        return document.body?.textContent || '';
+      } finally {
+        document.body.removeChild(tempDiv);
+      }
+    } catch (error) {
+      logger.error("Failed to get clean page text:", error.message);
+      // Ultimate fallback: return original text
+      return document.body?.textContent || '';
+    }
+  }
+
+  /**
+   * Get path to element from root (for finding clone)
+   */
+  function getElementPath(element) {
+    const path = [];
+    let current = element;
+    
+    while (current && current !== document.body) {
+      const parent = current.parentNode;
+      if (parent) {
+        const siblings = Array.from(parent.children);
+        path.unshift(siblings.indexOf(current));
+      }
+      current = parent;
+    }
+    
+    return path;
+  }
+
+  /**
+   * Get element by path in a cloned tree
+   */
+  function getElementByPath(root, path) {
+    let current = root;
+    
+    for (const index of path) {
+      if (!current.children || !current.children[index]) {
+        return null;
+      }
+      current = current.children[index];
+    }
+    
+    return current;
+  }
+
+  /**
+   * Cleanup removed elements from tracking
+   */
+  function cleanupInjectedElements() {
+    const toRemove = [];
+    
+    injectedElements.forEach(element => {
+      // If element no longer in DOM, remove from tracking
+      if (!element.isConnected) {
+        toRemove.push(element);
+      }
+    });
+    
+    toRemove.forEach(element => injectedElements.delete(element));
+    
+    if (toRemove.length > 0) {
+      logger.debug(`Cleaned up ${toRemove.length} disconnected elements from tracking`);
+    }
   }
 
   /**
@@ -368,20 +523,6 @@ if (window.checkExtensionLoaded) {
         error
       );
     }
-  }
-
-  /**
-   * Re-initialize the DOM observer. This is critical for pages that use
-   * document.write() to replace the entire DOM after initial load.
-   */
-  function reinitializeObserver() {
-    logger.warn("DOM appears to have been replaced. Re-initializing observer.");
-    if (domObserver) {
-      domObserver.disconnect();
-      domObserver = null;
-    }
-    clearPerformanceCaches();
-    setupDomObserver();
   }
 
   /**
@@ -1786,23 +1927,29 @@ if (window.checkExtensionLoaded) {
    * Process phishing indicators from detection rules
    */
   async function processPhishingIndicators() {
+    const startTime = Date.now(); // Track processing time
     try {
       const currentUrl = window.location.href;
 
-      // Debug logging
       logger.log(
         `🔍 processPhishingIndicators: detectionRules available: ${!!detectionRules}`
       );
 
       if (!detectionRules?.phishing_indicators) {
         logger.warn("No phishing indicators available");
+        lastProcessingTime = Date.now() - startTime; // Track even for early exit
         return { threats: [], score: 0 };
       }
 
       const threats = [];
       let totalScore = 0;
-      const pageSource = getPageSource();
-      const pageText = document.body?.textContent || "";
+      
+      // CRITICAL FIX: Use clean page source with extension elements removed
+      const pageSource = injectedElements.size > 0 ? getCleanPageSource() : getPageSource();
+      const pageText = injectedElements.size > 0 ? getCleanPageText() : (document.body?.textContent || "");
+      
+      // Cleanup disconnected elements before processing
+      cleanupInjectedElements();
 
       logger.log(
         `🔍 Testing ${detectionRules.phishing_indicators.length} phishing indicators against:`
@@ -1810,11 +1957,11 @@ if (window.checkExtensionLoaded) {
       logger.log(`   - Page source length: ${pageSource.length} chars`);
       logger.log(`   - Page text length: ${pageText.length} chars`);
       logger.log(`   - Current URL: ${currentUrl}`);
+      logger.log(`   - Injected elements excluded: ${injectedElements.size}`);
 
       // Check for legitimate context indicators
       const legitimateContext = checkLegitimateContext(pageText, pageSource);
 
-      // For pages with legitimate context, log but continue with detection
       if (legitimateContext) {
         logger.log(
           `📋 Legitimate context detected - continuing with phishing detection`
@@ -1828,33 +1975,40 @@ if (window.checkExtensionLoaded) {
         logger.log(`   ${i + 1}. ${ind.id}: ${ind.pattern} (${ind.severity})`);
       });
 
-      // Performance protection: Add timeout mechanism
-      const startTime = Date.now();
-      const PROCESSING_TIMEOUT = 5000; // Standard timeout
-      let processedCount = 0;
-
-      // Try Web Worker for background processing first
+      // Try Web Worker for background processing first with timeout protection
       logger.log(`⏱️ PERF: Attempting background processing with Web Worker`);
       try {
-        const backgroundResult = await processPhishingIndicatorsInBackground(
-          detectionRules.phishing_indicators,
-          pageSource,
-          pageText,
-          currentUrl
-        );
+        const backgroundResult = await Promise.race([
+          processPhishingIndicatorsInBackground(
+            detectionRules.phishing_indicators,
+            pageSource,
+            pageText,
+            currentUrl
+          ),
+          new Promise((_, reject) => 
+            setTimeout(
+              () => reject(new Error('Web Worker timeout')), 
+              PHISHING_PROCESSING_TIMEOUT
+            )
+          )
+        ]);
 
         if (
           backgroundResult &&
           (backgroundResult.threats.length > 0 || backgroundResult.score >= 0)
         ) {
-          logger.log(`⏱️ PERF: Background processing completed successfully`);
+          const processingTime = Date.now() - startTime;
+          lastProcessingTime = processingTime; // CRITICAL: Track time
+          
+          logger.log(
+            `⏱️ PERF: Background processing completed successfully in ${processingTime}ms`
+          );
 
           // Apply context filtering and SSO checks to background results
           const filteredThreats = [];
           for (const threat of backgroundResult.threats) {
             let includeThread = true;
 
-            // Apply context_required filtering from rules
             const indicator = detectionRules.phishing_indicators.find(
               (ind) => ind.id === threat.id
             );
@@ -1879,7 +2033,6 @@ if (window.checkExtensionLoaded) {
               }
             }
 
-            // Apply SSO exclusion from rules
             if (
               includeThread &&
               (threat.id === "phi_001_enhanced" || threat.id === "phi_002")
@@ -1898,11 +2051,19 @@ if (window.checkExtensionLoaded) {
             }
           }
 
+          logger.log(
+            `⏱️ Phishing indicators check (Web Worker): ${filteredThreats.length} threats found, ` +
+            `score: ${backgroundResult.score}, processing time: ${processingTime}ms`
+          );
+
           return { threats: filteredThreats, score: backgroundResult.score };
         }
       } catch (workerError) {
+        const failureTime = Date.now() - startTime;
+        // CRITICAL FIX: Track time even on Web Worker failure before falling back
+        lastProcessingTime = failureTime;
         logger.warn(
-          "Web Worker processing failed, falling back to main thread:",
+          `Web Worker processing failed after ${failureTime}ms, falling back to main thread:`,
           workerError.message
         );
       }
@@ -1915,6 +2076,7 @@ if (window.checkExtensionLoaded) {
           const threats = [];
           let totalScore = 0;
           let processedCount = 0;
+          const mainThreadStartTime = Date.now();
 
           const processNextBatch = async () => {
             const BATCH_SIZE = 2; // Smaller batches for idle processing
@@ -2055,6 +2217,24 @@ if (window.checkExtensionLoaded) {
 
             // Continue processing if more indicators remain
             if (processedCount < detectionRules.phishing_indicators.length) {
+              // Check timeout for main thread processing
+              const mainThreadElapsed = Date.now() - mainThreadStartTime;
+              if (mainThreadElapsed > PHISHING_PROCESSING_TIMEOUT) {
+                const totalTime = Date.now() - startTime;
+                lastProcessingTime = totalTime; // CRITICAL: Track time on timeout
+                
+                logger.warn(
+                  `⚠️ Main thread processing timeout after ${mainThreadElapsed}ms, ` +
+                  `processed ${processedCount}/${detectionRules.phishing_indicators.length} indicators`
+                );
+                logger.log(
+                  `⏱️ Phishing indicators check (Main Thread - TIMEOUT): ${threats.length} threats found, ` +
+                  `score: ${totalScore}, total time: ${totalTime}ms`
+                );
+                resolve({ threats, score: totalScore });
+                return;
+              }
+
               // Use requestIdleCallback if available, otherwise setTimeout
               if (window.requestIdleCallback) {
                 requestIdleCallback(processNextBatch, { timeout: 100 });
@@ -2063,6 +2243,14 @@ if (window.checkExtensionLoaded) {
               }
             } else {
               // Processing complete
+              const mainThreadTime = Date.now() - mainThreadStartTime;
+              const totalTime = Date.now() - startTime;
+              lastProcessingTime = totalTime; // CRITICAL: Track time on success
+              
+              logger.log(
+                `⏱️ Phishing indicators check (Main Thread): ${threats.length} threats found, ` +
+                `score: ${totalScore}, processing time: ${mainThreadTime}ms, total time: ${totalTime}ms`
+              );
               resolve({ threats, score: totalScore });
             }
           };
@@ -2074,13 +2262,14 @@ if (window.checkExtensionLoaded) {
         processWithIdleCallback();
       });
 
-      const processingTime = Date.now() - startTime;
-      logger.log(
-        `Phishing indicators check: ${threats.length} threats found, score: ${totalScore} (${processingTime}ms)`
-      );
-      return { threats, score: totalScore };
     } catch (error) {
-      logger.error("Error processing phishing indicators:", error.message);
+      const processingTime = Date.now() - startTime;
+      lastProcessingTime = processingTime; // CRITICAL: Track time on error
+      
+      logger.error(
+        `Error processing phishing indicators after ${processingTime}ms:`, 
+        error.message
+      );
       return { threats: [], score: 0 };
     }
   }
@@ -2199,24 +2388,6 @@ if (window.checkExtensionLoaded) {
 
     const content = (pageText + " " + pageSource).toLowerCase();
     return detectionRules.exclusion_system.context_indicators.legitimate_contexts.some(
-      (context) => {
-        return content.includes(context.toLowerCase());
-      }
-    );
-  }
-
-  /**
-   * Check for suspicious context indicators that override legitimate exclusions
-   */
-  function checkSuspiciousContext(pageText) {
-    if (
-      !detectionRules?.exclusion_system?.context_indicators?.suspicious_contexts
-    ) {
-      return false;
-    }
-
-    const content = pageText.toLowerCase();
-    return detectionRules.exclusion_system.context_indicators.suspicious_contexts.some(
       (context) => {
         return content.includes(context.toLowerCase());
       }
@@ -4323,50 +4494,46 @@ if (window.checkExtensionLoaded) {
     } catch (error) {
       logger.error("Failed to redirect to blocking page:", error.message);
 
-      // Fallback: Replace page content entirely if redirect fails
+      // Fallback: Replace page content
       try {
-        document.documentElement.innerHTML = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Site Blocked - Microsoft 365 Protection</title>
-          <style>
-            body {
-              font-family: system-ui, -apple-system, sans-serif;
-              background: #f5f5f5;
-              margin: 0;
-              padding: 40px;
-              text-align: center;
-            }
-            .container {
-              max-width: 600px;
-              margin: 0 auto;
-              background: white;
-              padding: 40px;
-              border-radius: 8px;
-              box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            }
-            .icon { font-size: 64px; color: #d32f2f; margin-bottom: 24px; }
-            h1 { color: #d32f2f; margin: 0 0 16px 0; }
-            p { color: #555; line-height: 1.6; }
-            .reason { color: #777; font-size: 14px; margin-top: 24px; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="icon">🛡️</div>
-            <h1>Phishing Site Blocked</h1>
+        // Create fallback overlay
+        const overlay = document.createElement("div");
+        overlay.id = "ms365-blocking-overlay";
+        overlay.style.cssText = `
+          position: fixed !important;
+          top: 0 !important;
+          left: 0 !important;
+          width: 100% !important;
+          height: 100% !important;
+          background: white !important;
+          z-index: 2147483647 !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+        `;
+        
+        // CRITICAL: Register overlay before adding to DOM
+        registerInjectedElement(overlay);
+        
+        overlay.innerHTML = `
+          <div style="max-width: 600px; padding: 40px; text-align: center; font-family: system-ui, -apple-system, sans-serif;">
+            <div style="font-size: 64px; color: #d32f2f; margin-bottom: 24px;">🛡️</div>
+            <h1 style="color: #d32f2f; margin: 0 0 16px 0;">Phishing Site Blocked</h1>
             <p><strong>Microsoft 365 login page detected on suspicious domain.</strong></p>
             <p>This site may be attempting to steal your credentials and has been blocked for your protection.</p>
-            <div class="reason">Reason: ${reason}</div>
-            <div class="reason">Blocked by: Check</div>
-            <div class="reason">No override available - contact your administrator if this is incorrect</div>
+            <div style="color: #777; font-size: 14px; margin-top: 24px;">Reason: ${reason}</div>
+            <div style="color: #777; font-size: 14px;">Blocked by: Check</div>
+            <div style="color: #777; font-size: 14px;">No override available - contact your administrator if this is incorrect</div>
           </div>
-        </body>
-        </html>
-      `;
+        `;
+        
+        document.body.appendChild(overlay);
+        
+        // Register all child elements
+        const allChildren = overlay.querySelectorAll("*");
+        allChildren.forEach(child => registerInjectedElement(child));
 
-        logger.log("Fallback page content replacement completed");
+        logger.log("Fallback page content replacement completed with element tracking");
       } catch (fallbackError) {
         logger.error(
           "Fallback page replacement failed:",
@@ -4490,49 +4657,9 @@ if (window.checkExtensionLoaded) {
                 }: ${threat.description || threat.reason || "Threat detected"}`
             )
             .join("\n");
-        } else if (
-          details.foundThreats &&
-          Array.isArray(details.foundThreats)
-        ) {
-          return details.foundThreats
-            .map(
-              (threat) =>
-                `- ${threat.id || threat}: ${threat.description || "Detected"}`
-            )
-            .join("\n");
-        } else if (details.indicators && Array.isArray(details.indicators)) {
-          return details.indicators
-            .map(
-              (indicator) =>
-                `- ${indicator.id}: ${indicator.description || indicator.id} (${
-                  indicator.severity || "unknown"
-                })`
-            )
-            .join("\n");
-        } else if (
-          details.foundIndicators &&
-          Array.isArray(details.foundIndicators)
-        ) {
-          return details.foundIndicators
-            .map(
-              (indicator) =>
-                `- ${indicator.id || indicator}: ${indicator.description || ""}`
-            )
-            .join("\n");
-        } else {
-          // Fallback: Look for any array properties that might contain indicators
-          const arrayProps = Object.keys(details).filter(
-            (key) => Array.isArray(details[key]) && details[key].length > 0
-          );
-
-          if (arrayProps.length > 0) {
-            return `Multiple indicators detected (${
-              details.reason || "see browser console for details"
-            })`;
-          } else {
-            return `${details.reason || "Unknown detection criteria"}`;
-          }
         }
+        
+        return `${details.reason || "Unknown detection criteria"}`;
       };
 
       const applyBranding = (bannerEl, branding) => {
@@ -4547,17 +4674,23 @@ if (window.checkExtensionLoaded) {
           if (!logoUrl) {
             logoUrl = packagedFallback;
           }
+          
           let brandingSlot = bannerEl.querySelector("#check-banner-branding");
           if (!brandingSlot) {
             const container = document.createElement("div");
             container.id = "check-banner-branding";
             container.style.cssText =
               "display:flex;align-items:center;gap:8px;";
+            
+            // CRITICAL: Register the branding container
+            registerInjectedElement(container);
+            
             const innerWrapper = bannerEl.firstElementChild;
             if (innerWrapper)
               innerWrapper.insertBefore(container, innerWrapper.firstChild);
             brandingSlot = container;
           }
+          
           if (brandingSlot) {
             brandingSlot.innerHTML = "";
             if (logoUrl) {
@@ -4566,15 +4699,27 @@ if (window.checkExtensionLoaded) {
               img.alt = companyName + " logo";
               img.style.cssText =
                 "width:28px;height:28px;object-fit:contain;border-radius:4px;background:rgba(255,255,255,0.25);padding:2px;";
+              
+              // CRITICAL: Register the logo image
+              registerInjectedElement(img);
               brandingSlot.appendChild(img);
             }
+            
             const textWrap = document.createElement("div");
             textWrap.style.cssText =
               "display:flex;flex-direction:column;align-items:flex-start;line-height:1.2;";
+            
+            // CRITICAL: Register the text wrapper
+            registerInjectedElement(textWrap);
+            
             const titleSpan = document.createElement("span");
             titleSpan.style.cssText = "font-size:12px;font-weight:600;";
             titleSpan.textContent = "Protected by " + companyName;
+            
+            // CRITICAL: Register the title span
+            registerInjectedElement(titleSpan);
             textWrap.appendChild(titleSpan);
+            
             if (supportEmail) {
               const contactDiv = document.createElement("div");
               const contactLink = document.createElement("a");
@@ -4594,12 +4739,14 @@ if (window.checkExtensionLoaded) {
                     reason,
                   });
                 } catch (_) {}
+                
                 let indicatorsText;
                 try {
                   indicatorsText = extractPhishingIndicators(analysisData);
                 } catch (err) {
                   indicatorsText = "Parse error - see console";
                 }
+                
                 const detectionScoreLine =
                   analysisData?.score !== undefined
                     ? `Detection Score: ${analysisData.score}/${analysisData.threshold}`
@@ -4616,6 +4763,11 @@ if (window.checkExtensionLoaded) {
                   subject
                 )}&body=${body}`;
               });
+              
+              // CRITICAL: Register contact elements
+              registerInjectedElement(contactDiv);
+              registerInjectedElement(contactLink);
+              
               contactDiv.appendChild(contactLink);
               textWrap.appendChild(contactDiv);
             }
@@ -4662,19 +4814,19 @@ if (window.checkExtensionLoaded) {
 
       // Layout: left branding slot, absolutely centered message block, dismiss button on right.
       const bannerContent = `
-      <div style="position:relative;display:flex;align-items:center;gap:16px;min-height:56px;">
-        <div id="check-banner-left" style="display:flex;align-items:center;gap:12px;z-index:2;"></div>
-        <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);text-align:center;max-width:60%;z-index:1;pointer-events:none;">
-          <span style="display:block;font-size:24px;margin-bottom:4px;">${bannerIcon}</span>
-          <strong style="display:block;">${bannerTitle}</strong>
-          <small style="opacity:0.95;display:block;margin-top:2px;">${reason}${detailsText}</small>
-        </div>
-        <button onclick="this.closest('#ms365-warning-banner').remove(); document.body.style.marginTop = '0'; window.showingBanner = false;" title="Dismiss" style="
-          margin-left:auto;position:relative;background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.3);
-          color:#fff;padding:0;border-radius:4px;cursor:pointer;
-          width:24px;height:24px;min-width:24px;min-height:24px;display:flex;align-items:center;justify-content:center;
-          font-size:14px;font-weight:bold;line-height:1;box-sizing:border-box;font-family:monospace;z-index:2;">×</button>
-      </div>`;
+        <div style="position:relative;display:flex;align-items:center;gap:16px;min-height:56px;">
+          <div id="check-banner-left" style="display:flex;align-items:center;gap:12px;z-index:2;"></div>
+          <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);text-align:center;max-width:60%;z-index:1;pointer-events:none;">
+            <span style="display:block;font-size:24px;margin-bottom:4px;">${bannerIcon}</span>
+            <strong style="display:block;">${bannerTitle}</strong>
+            <small style="opacity:0.95;display:block;margin-top:2px;">${reason}${detailsText}</small>
+          </div>
+          <button onclick="this.closest('#ms365-warning-banner').remove(); document.body.style.marginTop = '0'; window.showingBanner = false;" title="Dismiss" style="
+            margin-left:auto;position:relative;background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.3);
+            color:#fff;padding:0;border-radius:4px;cursor:pointer;
+            width:24px;height:24px;min-width:24px;min-height:24px;display:flex;align-items:center;justify-content:center;
+            font-size:14px;font-weight:bold;line-height:1;box-sizing:border-box;font-family:monospace;z-index:2;">×</button>
+        </div>`;
 
       // Check if banner already exists
       let banner = document.getElementById("ms365-warning-banner");
@@ -4697,29 +4849,35 @@ if (window.checkExtensionLoaded) {
       banner = document.createElement("div");
       banner.id = "ms365-warning-banner";
       banner.style.cssText = `
-      position: fixed !important;
-      top: 0 !important;
-      left: 0 !important;
-      width: 100% !important;
-      background: ${bannerColor} !important;
-      color: white !important;
-      padding: 16px !important;
-      z-index: 2147483646 !important;
-      font-family: system-ui, -apple-system, sans-serif !important;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
-      text-align: center !important;
-    `;
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
+        background: ${bannerColor} !important;
+        color: white !important;
+        padding: 16px !important;
+        z-index: 2147483646 !important;
+        font-family: system-ui, -apple-system, sans-serif !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
+        text-align: center !important;
+      `;
+
+      // CRITICAL: Register the banner BEFORE adding to DOM
+      registerInjectedElement(banner);
 
       banner.innerHTML = bannerContent;
-      document.body.appendChild(banner);
+      document.body.insertBefore(banner, document.body.firstChild);
+
+      // Register all child elements created via innerHTML
+      const allChildren = banner.querySelectorAll("*");
+      allChildren.forEach(child => registerInjectedElement(child));
 
       fetchBranding().then((branding) => applyBranding(banner, branding));
 
-      // Push page content down to avoid covering login header
-      const bannerHeight = banner.offsetHeight || 64; // fallback height
+      const bannerHeight = banner.offsetHeight || 64;
       document.body.style.marginTop = `${bannerHeight}px`;
 
-      logger.log("Warning banner displayed");
+      logger.log("Warning banner displayed and all elements registered for exclusion");
     } catch (error) {
       logger.error("Failed to show warning banner:", error.message);
       showingBanner = false;
@@ -5189,7 +5347,7 @@ if (window.checkExtensionLoaded) {
   /**
    * Message listener for popup communication
    */
-  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  chrome.runtime.onMessage.addListener((message, sendResponse) => {
     if (message.type === "SHOW_VALID_BADGE") {
       try {
         logger.log("📋 VALID BADGE: Received request to show valid page badge");
