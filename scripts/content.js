@@ -2206,6 +2206,27 @@ if (window.checkExtensionLoaded) {
                   logger.warn(
                     `🚨 PHISHING INDICATOR DETECTED: ${indicator.id} - ${indicator.description}`
                   );
+
+                  // Don't waste time processing more indicators if we're already going to block
+                  const blockThreats = threats.filter(t => t.action === 'block').length;
+                  const highSeverityThreats = threats.filter(
+                    t => t.severity === 'high' || t.severity === 'critical'
+                  ).length;
+
+                  if (blockThreats > 0 || highSeverityThreats >= WARNING_THRESHOLD) {
+                    const totalTime = Date.now() - startTime;
+                    lastProcessingTime = totalTime;
+                    
+                    logger.log(
+                      `⚡ Early termination: blocking threshold reached after processing ${processedCount}/${detectionRules.phishing_indicators.length} indicators`
+                    );
+                    logger.log(
+                      `⏱️ Phishing indicators check (Main Thread - EARLY EXIT): ${threats.length} threats found, ` +
+                      `score: ${totalScore}, time: ${totalTime}ms`
+                    );
+                    resolve({ threats, score: totalScore });
+                    return; // Exit immediately
+                  }
                 }
               } catch (error) {
                 logger.warn(
