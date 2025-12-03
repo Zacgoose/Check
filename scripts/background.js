@@ -5,7 +5,7 @@
  */
 
 // Import browser polyfill for cross-browser compatibility (Chrome/Firefox)
-import { chrome, storage, isFirefox } from "./browser-polyfill.js";
+import { chrome, storage } from "./browser-polyfill.js";
 
 import { ConfigManager } from "./modules/config-manager.js";
 import { PolicyManager } from "./modules/policy-manager.js";
