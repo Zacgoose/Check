@@ -3,7 +3,7 @@
  * Handles enterprise policies, permissions, and compliance enforcement
  */
 
-import { storage } from "../browser-polyfill.js";
+import { chrome, storage } from "../browser-polyfill.js";
 import logger from "../utils/logger.js";
 
 export class PolicyManager {
