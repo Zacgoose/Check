@@ -107,7 +107,7 @@ const storageAPI = {
     // Uses local storage with __session__ prefix and in-memory cleanup
     const _sessionPrefix = '__session__';
     const _sessionKeys = new Set();
-    let _cleanupComplete = !isFirefox; // Chrome doesn't need cleanup
+    let _cleanupComplete = false;
     let _cleanupPromise = null;
     
     // Initialize cleanup (called externally)
@@ -123,6 +123,9 @@ const storageAPI = {
           _sessionKeys.clear();
           _cleanupComplete = true;
         })();
+      } else if (isChrome) {
+        // Chrome uses native session storage, mark as complete immediately
+        _cleanupComplete = true;
       }
       return _cleanupPromise;
     };
@@ -131,12 +134,22 @@ const storageAPI = {
     const ensureCleanup = async () => {
       if (_cleanupComplete) return;
       if (_cleanupPromise) return _cleanupPromise;
-      // This shouldn't happen if initCleanup is called on load, but just in case
+      // This shouldn't happen if initCleanup is called on load, but handle it gracefully
+      if (typeof console !== 'undefined') {
+        console.warn('Session cleanup called before initialization - initializing now');
+      }
       return initCleanup();
     };
     
     return {
-      // Note: These methods should not be destructured as they rely on closure scope
+      /**
+       * IMPORTANT: Do not destructure these methods (e.g., const {get} = storage.session)
+       * They rely on closure-scoped variables (_sessionPrefix, _sessionKeys) and will
+       * not work correctly if called without the proper context.
+       * 
+       * Correct usage: storage.session.get(keys)
+       * Incorrect usage: const {get} = storage.session; get(keys) // Will fail
+       */
       get: async (keys) => {
         // Wait for cleanup to complete in Firefox
         await ensureCleanup();
