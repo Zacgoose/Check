@@ -242,8 +242,12 @@ const storageAPI = {
 
 // Initialize session cleanup on load (Firefox only)
 if (isFirefox && browserAPI.storage) {
-  storageAPI.session._initCleanup().catch(() => {
-    // Silently ignore cleanup errors
+  storageAPI.session._initCleanup().catch((err) => {
+    // Log cleanup errors to the console in development for easier debugging.
+    // In production, you may want to suppress this or handle differently.
+    if (typeof console !== 'undefined') {
+      console.error('Session cleanup initialization failed:', err);
+    }
   });
 }
 
