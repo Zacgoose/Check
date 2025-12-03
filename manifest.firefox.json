@@ -55,7 +55,8 @@
         "blocked.html",
         "scripts/utils/logger.js",
         "scripts/blocked.js",
-        "scripts/browser-polyfill.js"
+        "scripts/browser-polyfill.js",
+        "scripts/browser-polyfill-inline.js"
       ],
       "matches": ["<all_urls>"]
     }

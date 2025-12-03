@@ -211,11 +211,11 @@ const storageAPI = {
       if (isFirefox) {
         // Clear all session data on startup
         const allData = await storageAPI.local.get(null);
-        const sessionKeys = Object.keys(allData).filter(k => k.startsWith(this._sessionPrefix));
+        const sessionKeys = Object.keys(allData).filter(k => k.startsWith(storageAPI.session._sessionPrefix));
         if (sessionKeys.length > 0) {
           await storageAPI.local.remove(sessionKeys);
         }
-        this._sessionKeys.clear();
+        storageAPI.session._sessionKeys.clear();
       }
     }
   },

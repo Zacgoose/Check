@@ -24,20 +24,24 @@
   // Firefox doesn't have chrome.storage.session in MV3 yet, Chrome has it
   const needsSessionPolyfill = isFirefox || (isChrome && !chrome.storage.session);
   
+  // Ensure chrome API exists for Firefox - do this first before session polyfill
+  if (isFirefox && !window.chrome) {
+    window.chrome = {
+      storage: {
+        local: browser.storage.local,
+        managed: browser.storage.managed
+      },
+      runtime: browser.runtime,
+      tabs: browser.tabs,
+      action: browser.action || browser.browserAction,
+      scripting: browser.scripting,
+      webRequest: browser.webRequest,
+      alarms: browser.alarms,
+      identity: browser.identity
+    };
+  }
+  
   if (needsSessionPolyfill) {
-    // Ensure chrome API exists for Firefox
-    if (isFirefox && !window.chrome) {
-      window.chrome = {
-        storage: {
-          local: browser.storage.local,
-          managed: browser.storage.managed
-        },
-        runtime: browser.runtime,
-        tabs: browser.tabs,
-        action: browser.action || browser.browserAction
-      };
-    }
-    
     // Create session storage polyfill using local storage
     // Use the appropriate storage API based on browser
     const getStorage = (keys, callback) => {
@@ -125,11 +129,6 @@
         removeStorage(prefixedKeys, callback);
       }
     };
-  }
-  
-  // Firefox uses browser.* API natively, ensure chrome.* is available as an alias
-  if (isFirefox && !window.chrome) {
-    window.chrome = browser;
   }
   
   // Expose helper flags
