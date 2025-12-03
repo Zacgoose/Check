@@ -16,81 +16,118 @@
   // Use browser namespace if available (Firefox), otherwise chrome namespace
   const browserAPI = isFirefox ? browser : (isChrome ? chrome : {});
   
-  // Only set up polyfill if we're not already using the native browser API
-  if (isChrome && !isFirefox) {
-    // Chrome-specific polyfills for storage.session fallback
-    
-    // Session storage fallback using local storage with prefix
-    const sessionPrefix = '__session__';
-    const sessionKeys = new Set();
-    
-    // Wrap chrome.storage.session if it doesn't exist or for Firefox
-    if (!chrome.storage.session || isFirefox) {
-      // Create session storage polyfill using local storage
-      const originalSessionStorage = chrome.storage.session || {};
-      
-      chrome.storage.session = {
-        get: function(keys, callback) {
-          const prefixedKeys = Array.isArray(keys)
-            ? keys.map(k => sessionPrefix + k)
-            : (typeof keys === 'string' ? sessionPrefix + keys : null);
-          
-          chrome.storage.local.get(prefixedKeys, function(result) {
-            if (chrome.runtime.lastError) {
-              callback && callback({});
-              return;
-            }
-            
-            const unprefixed = {};
-            if (Array.isArray(prefixedKeys)) {
-              for (const prefixedKey of prefixedKeys) {
-                const originalKey = prefixedKey.replace(sessionPrefix, '');
-                if (prefixedKey in result) {
-                  unprefixed[originalKey] = result[prefixedKey];
-                }
-              }
-            } else if (prefixedKeys) {
-              const originalKey = prefixedKeys.replace(sessionPrefix, '');
-              if (prefixedKeys in result) {
-                unprefixed[originalKey] = result[prefixedKeys];
-              }
-            } else {
-              // Get all session keys
-              for (const [key, value] of Object.entries(result)) {
-                if (key.startsWith(sessionPrefix)) {
-                  unprefixed[key.replace(sessionPrefix, '')] = value;
-                }
-              }
-            }
-            
-            callback && callback(unprefixed);
-          });
+  // Session storage fallback using local storage with prefix
+  const sessionPrefix = '__session__';
+  const sessionKeys = new Set();
+  
+  // Set up session storage polyfill for browsers that don't support it natively
+  // Firefox doesn't have chrome.storage.session in MV3 yet, Chrome has it
+  const needsSessionPolyfill = isFirefox || (isChrome && !chrome.storage.session);
+  
+  if (needsSessionPolyfill) {
+    // Ensure chrome API exists for Firefox
+    if (isFirefox && !window.chrome) {
+      window.chrome = {
+        storage: {
+          local: browser.storage.local,
+          managed: browser.storage.managed
         },
-        
-        set: function(items, callback) {
-          const prefixed = {};
-          for (const [key, value] of Object.entries(items)) {
-            const prefixedKey = sessionPrefix + key;
-            prefixed[prefixedKey] = value;
-            sessionKeys.add(prefixedKey);
-          }
-          
-          chrome.storage.local.set(prefixed, callback);
-        },
-        
-        remove: function(keys, callback) {
-          const keysArray = Array.isArray(keys) ? keys : [keys];
-          const prefixedKeys = keysArray.map(k => sessionPrefix + k);
-          
-          prefixedKeys.forEach(k => sessionKeys.delete(k));
-          
-          chrome.storage.local.remove(prefixedKeys, callback);
-        }
+        runtime: browser.runtime,
+        tabs: browser.tabs,
+        action: browser.action || browser.browserAction
       };
     }
+    
+    // Create session storage polyfill using local storage
+    // Use the appropriate storage API based on browser
+    const getStorage = (keys, callback) => {
+      if (isFirefox) {
+        // Firefox uses promises
+        browser.storage.local.get(keys).then(callback).catch(() => callback({}));
+      } else {
+        // Chrome uses callbacks
+        chrome.storage.local.get(keys, (result) => {
+          if (chrome.runtime.lastError) {
+            callback({});
+          } else {
+            callback(result);
+          }
+        });
+      }
+    };
+    
+    const setStorage = (items, callback) => {
+      if (isFirefox) {
+        browser.storage.local.set(items).then(() => callback && callback()).catch(() => callback && callback());
+      } else {
+        chrome.storage.local.set(items, callback);
+      }
+    };
+    
+    const removeStorage = (keys, callback) => {
+      if (isFirefox) {
+        browser.storage.local.remove(keys).then(() => callback && callback()).catch(() => callback && callback());
+      } else {
+        chrome.storage.local.remove(keys, callback);
+      }
+    };
+    
+    chrome.storage.session = {
+      get: function(keys, callback) {
+        const prefixedKeys = Array.isArray(keys)
+          ? keys.map(k => sessionPrefix + k)
+          : (typeof keys === 'string' ? sessionPrefix + keys : null);
+        
+        getStorage(prefixedKeys, function(result) {
+          const unprefixed = {};
+          if (Array.isArray(prefixedKeys)) {
+            for (const prefixedKey of prefixedKeys) {
+              const originalKey = prefixedKey.replace(sessionPrefix, '');
+              if (prefixedKey in result) {
+                unprefixed[originalKey] = result[prefixedKey];
+              }
+            }
+          } else if (prefixedKeys) {
+            const originalKey = prefixedKeys.replace(sessionPrefix, '');
+            if (prefixedKeys in result) {
+              unprefixed[originalKey] = result[prefixedKeys];
+            }
+          } else {
+            // Get all session keys
+            for (const [key, value] of Object.entries(result)) {
+              if (key.startsWith(sessionPrefix)) {
+                unprefixed[key.replace(sessionPrefix, '')] = value;
+              }
+            }
+          }
+          
+          callback && callback(unprefixed);
+        });
+      },
+      
+      set: function(items, callback) {
+        const prefixed = {};
+        for (const [key, value] of Object.entries(items)) {
+          const prefixedKey = sessionPrefix + key;
+          prefixed[prefixedKey] = value;
+          sessionKeys.add(prefixedKey);
+        }
+        
+        setStorage(prefixed, callback);
+      },
+      
+      remove: function(keys, callback) {
+        const keysArray = Array.isArray(keys) ? keys : [keys];
+        const prefixedKeys = keysArray.map(k => sessionPrefix + k);
+        
+        prefixedKeys.forEach(k => sessionKeys.delete(k));
+        
+        removeStorage(prefixedKeys, callback);
+      }
+    };
   }
   
-  // Firefox uses browser.* API natively, but we can ensure chrome.* is available as an alias
+  // Firefox uses browser.* API natively, ensure chrome.* is available as an alias
   if (isFirefox && !window.chrome) {
     window.chrome = browser;
   }
