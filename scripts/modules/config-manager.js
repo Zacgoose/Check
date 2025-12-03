@@ -3,7 +3,7 @@
  * Handles enterprise configuration, branding, and settings management
  */
 
-import { storage } from "../browser-polyfill.js";
+import { chrome, storage } from "../browser-polyfill.js";
 import logger from "../utils/logger.js";
 
 export class ConfigManager {
