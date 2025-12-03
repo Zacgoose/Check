@@ -21,8 +21,8 @@
   const sessionKeys = new Set();
   
   // Set up session storage polyfill for browsers that don't support it natively
-  // Firefox doesn't have chrome.storage.session in MV3 yet, Chrome has it
-  const needsSessionPolyfill = isFirefox || (isChrome && !chrome.storage.session);
+  // Only Firefox needs this polyfill; Chrome 88+ always supports chrome.storage.session
+  const needsSessionPolyfill = isFirefox;
   
   // Ensure chrome API exists for Firefox - do this first before session polyfill
   if (isFirefox && !window.chrome) {
