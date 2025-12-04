@@ -1,7 +1,7 @@
 {
-  "version": "1.0.6",
-  "lastUpdated": "2025-09-08T14:20:00Z",
-  "description": "Phishing detection logic for identifying phishing attempts targeting Microsoft 365 login pages",
+  "version": "1.0.7",
+  "lastUpdated": "2024-12-04T12:00:00Z",
+  "description": "Phishing detection logic for identifying phishing attempts targeting Microsoft 365 login pages - IMPROVED with 8 new indicators including fake/dead link detection",
   "trusted_login_patterns": [
     "^https:\\/\\/login\\.microsoftonline\\.(com|us)$",
     "^https:\\/\\/login\\.microsoft\\.com$",
@@ -720,6 +720,56 @@
       "action": "block",
       "category": "brand_abuse",
       "confidence": 0.95
+    },
+    {
+      "id": "phi_023_css_selection_blocking",
+      "pattern": "(?:user-select|\\-webkit\\-user\\-select|\\-moz\\-user\\-select|\\-ms\\-user\\-select)\\s*:\\s*none",
+      "flags": "i",
+      "severity": "high",
+      "description": "CSS code prevents text selection - common anti-analysis technique used in phishing pages",
+      "action": "block",
+      "category": "anti_analysis",
+      "confidence": 0.85
+    },
+    {
+      "id": "phi_024_randomized_css_classes",
+      "pattern": "class\\s*=\\s*[\"'][a-z]+_[a-z]+_\\d{3}[\"']",
+      "flags": "g",
+      "severity": "medium",
+      "description": "Randomized CSS class names to evade pattern detection",
+      "action": "warn",
+      "category": "code_obfuscation",
+      "confidence": 0.75
+    },
+    {
+      "id": "phi_025_honeypot_fields",
+      "pattern": "(?:position\\s*:\\s*absolute\\s*!important\\s*;[^}]*left\\s*:\\s*\\-9999px)|(?:visibility\\s*:\\s*hidden\\s*!important)|(?:opacity\\s*:\\s*0\\s*!important[^}]*width\\s*:\\s*0)",
+      "flags": "i",
+      "severity": "high",
+      "description": "Honeypot fields used to detect and filter automated bot submissions",
+      "action": "block",
+      "category": "anti_analysis",
+      "confidence": 0.9
+    },
+    {
+      "id": "phi_029_fake_dead_links",
+      "pattern": "<a[^>]*href\\s*=\\s*[\"'](?:#|javascript:(?:void\\(0\\))?)[\"'][^>]*>(?:[^<]*<b><\\/b>[^<]*){2,}[^<]*<\\/a>",
+      "flags": "i",
+      "severity": "high",
+      "description": "Links with href='#' or 'javascript:' containing obfuscated text using <b></b> tags between letters or empty - common phishing tactic to evade detection",
+      "action": "block",
+      "category": "suspicious_structure",
+      "confidence": 0.95
+    },
+    {
+      "id": "phi_030_empty_tag_obfuscation",
+      "pattern": "(?:<b><\\/b>){5,}|(?:<i><\\/i>){5,}",
+      "flags": "i",
+      "severity": "high",
+      "description": "Multiple <b></b> or <i></i> tags used throughout page to obfuscate text and evade keyword detection - common phishing technique",
+      "action": "block",
+      "category": "text_obfuscation",
+      "confidence": 0.9
     }
   ],
   "legitimate_patterns": [
