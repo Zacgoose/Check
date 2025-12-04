@@ -484,7 +484,15 @@
     },
     {
       "id": "phi_012_suspicious_resources",
-      "pattern": "(?=.*customcss)(?!.*aadcdn\\.msftauthimages\\.net)",
+      "code_driven": true,
+      "code_logic": {
+        "type": "substring_not_allowlist",
+        "substring": "customcss",
+        "allowlist": [
+          "aadcdn.msftauthimages.net"
+        ]
+      },
+      "pattern": "customcss(?![^]*aadcdn\\.msftauthimages\\.net)",
       "flags": "i",
       "severity": "high",
       "description": "Custom CSS loaded from unauthorized domain",
@@ -633,13 +641,42 @@
     },
     {
       "id": "phi_003",
-      "pattern": "(?!.*(?:sign\\s+in\\s+with\\s+microsoft|continue\\s+with\\s+microsoft|login\\s+with\\s+microsoft|authenticate\\s+with\\s+microsoft|sso|oauth|third.?party\\s+auth|\\.auth/login/|azure\\s+static\\s+web\\s+apps|easy\\s+auth))(?:verify.{0,200}account|suspended.{0,200}365|update.{0,200}office|secure.{0,200}microsoft|account.{0,200}security|security.{0,200}verification|365.{0,200}suspended|office.{0,200}update|microsoft.{0,200}secure|login.{0,200}microsoft|microsoft.{0,200}login|microsoft.{0,200}authentication|authentication.{0,200}microsoft|office.{0,200}365.{0,200}login|365.{0,200}office.{0,200}login)",
+      "code_driven": true,
+      "code_logic": {
+        "type": "substring_or_regex",
+        "substrings": [
+          "verify account",
+          "suspended 365",
+          "update office",
+          "secure microsoft",
+          "account security",
+          "security verification",
+          "365 suspended",
+          "office update",
+          "microsoft secure",
+          "login microsoft",
+          "microsoft login",
+          "microsoft authentication",
+          "authentication microsoft",
+          "office 365 login",
+          "365 office login"
+        ],
+        "regex": "(verify.{0,50}account|suspended.{0,50}365|update.{0,50}office|secure.{0,50}microsoft|account.{0,50}security|security.{0,50}verification|365.{0,50}suspended|office.{0,50}update|microsoft.{0,50}secure|login.{0,50}microsoft|microsoft.{0,50}login|microsoft.{0,50}authentication|authentication.{0,50}microsoft|office.{0,50}365.{0,50}login|365.{0,50}office.{0,50}login)",
+        "flags": "i"
+      },
+      "pattern": "(verify.{0,50}account|suspended.{0,50}365|update.{0,50}office|secure.{0,50}microsoft|account.{0,50}security|security.{0,50}verification|365.{0,50}suspended|office.{0,50}update|microsoft.{0,50}secure|login.{0,50}microsoft|microsoft.{0,50}login|microsoft.{0,50}authentication|authentication.{0,50}microsoft|office.{0,50}365.{0,50}login|365.{0,50}office.{0,50}login)",
       "flags": "i",
       "severity": "high",
       "description": "Common Microsoft 365 phishing keywords and variations",
       "action": "block",
       "category": "social_engineering",
-      "confidence": 0.85
+      "confidence": 0.85,
+      "additional_checks": [
+        "verify account",
+        "suspended 365",
+        "update office",
+        "secure microsoft"
+      ]
     },
     {
       "id": "phi_020_grammar_typos",

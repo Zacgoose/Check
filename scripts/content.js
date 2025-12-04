@@ -33,7 +33,9 @@ if (window.checkExtensionLoaded) {
   const SCAN_COOLDOWN = 1200; // 1200ms between scans - increased for performance
   const THREAT_TRIGGERED_COOLDOWN = 500; // Shorter cooldown for threat-triggered re-scans
   const WARNING_THRESHOLD = 3; // Block if 4+ warning threats found (escalation threshold)
-  const PHISHING_PROCESSING_TIMEOUT = 10000; // 10 second timeout for phishing indicator processing
+  const PHISHING_PROCESSING_TIMEOUT = 1200000; // 10 second timeout for phishing indicator processing
+  let disablePhishingProcessingTimeout = false; // Toggle for debugging
+  let forceMainThreadPhishingProcessing = false; // Toggle for debugging main thread only
   const SLOW_PAGE_RESCAN_SKIP_THRESHOLD = 5000; // Don't re-scan if initial scan took > 5s
   let lastProcessingTime = 0; // Track last phishing indicator processing time
   let lastPageSourceHash = null; // Hash of page source to detect real changes
@@ -121,6 +123,17 @@ if (window.checkExtensionLoaded) {
       }
     });
   }
+
+  /**
+   * Enable or disable the phishing processing timeout for debugging
+   * Call from console: setDisablePhishingProcessingTimeout(true/false)
+   */
+  window.setDisablePhishingProcessingTimeout = function (disable) {
+    disablePhishingProcessingTimeout = !!disable;
+    console.log(
+      `[M365-Protection] Phishing processing timeout is now ${disablePhishingProcessingTimeout ? 'DISABLED' : 'ENABLED'}`
+    );
+  };
 
   function isInIframe() {
     try {
@@ -509,6 +522,9 @@ if (window.checkExtensionLoaded) {
 
       developerConsoleLoggingEnabled =
         config.enableDeveloperConsoleLogging === true; // "Developer Mode" in UI
+
+      // Also load forceMainThreadPhishingProcessing
+      forceMainThreadPhishingProcessing = config.forceMainThreadPhishingProcessing === true;
 
       // Only setup console capture if developer mode is enabled
       if (developerConsoleLoggingEnabled) {
@@ -1975,97 +1991,111 @@ if (window.checkExtensionLoaded) {
         logger.log(`   ${i + 1}. ${ind.id}: ${ind.pattern} (${ind.severity})`);
       });
 
-      // Try Web Worker for background processing first with timeout protection
-      logger.log(`⏱️ PERF: Attempting background processing with Web Worker`);
-      try {
-        const backgroundResult = await Promise.race([
-          processPhishingIndicatorsInBackground(
+      // If forceMainThreadPhishingProcessing is enabled, skip Web Worker and use main thread directly
+      if (forceMainThreadPhishingProcessing) {
+        logger.log("⏱️ DEBUG: Forcing main thread phishing processing (Web Worker disabled by UI toggle)");
+      } else {
+        // Try Web Worker for background processing first with timeout protection
+        logger.log(`⏱️ PERF: Attempting background processing with Web Worker`);
+        try {
+          const timeoutMs = disablePhishingProcessingTimeout ? null : PHISHING_PROCESSING_TIMEOUT;
+          const backgroundPromise = processPhishingIndicatorsInBackground(
             detectionRules.phishing_indicators,
             pageSource,
             pageText,
             currentUrl
-          ),
-          new Promise((_, reject) => 
-            setTimeout(
-              () => reject(new Error('Web Worker timeout')), 
-              PHISHING_PROCESSING_TIMEOUT
-            )
-          )
-        ]);
-
-        if (
-          backgroundResult &&
-          (backgroundResult.threats.length > 0 || backgroundResult.score >= 0)
-        ) {
-          const processingTime = Date.now() - startTime;
-          lastProcessingTime = processingTime; // CRITICAL: Track time
-          
-          logger.log(
-            `⏱️ PERF: Background processing completed successfully in ${processingTime}ms`
           );
+          const resultPromise = timeoutMs
+            ? Promise.race([
+                backgroundPromise,
+                new Promise((_, reject) =>
+                  setTimeout(
+                    () => reject(new Error('Web Worker timeout')),
+                    timeoutMs
+                  )
+                ),
+              ])
+            : backgroundPromise;
 
-          // Apply context filtering and SSO checks to background results
-          const filteredThreats = [];
-          for (const threat of backgroundResult.threats) {
-            let includeThread = true;
+          const backgroundResult = await resultPromise;
 
-            const indicator = detectionRules.phishing_indicators.find(
-              (ind) => ind.id === threat.id
+          if (
+            backgroundResult &&
+            (backgroundResult.threats.length > 0 || backgroundResult.score >= 0)
+          ) {
+            const processingTime = Date.now() - startTime;
+            lastProcessingTime = processingTime; // CRITICAL: Track time
+
+            logger.log(
+              `⏱️ PERF: Background processing completed successfully in ${processingTime}ms`
             );
-            if (indicator?.context_required) {
-              let contextFound = false;
-              for (const requiredContext of indicator.context_required) {
-                if (
-                  pageSource
-                    .toLowerCase()
-                    .includes(requiredContext.toLowerCase()) ||
-                  pageText.toLowerCase().includes(requiredContext.toLowerCase())
-                ) {
-                  contextFound = true;
-                  break;
+
+            // Apply context filtering and SSO checks to background results
+            const filteredThreats = [];
+            for (const threat of backgroundResult.threats) {
+              let includeThread = true;
+
+              const indicator = detectionRules.phishing_indicators.find(
+                (ind) => ind.id === threat.id
+              );
+              if (indicator?.context_required) {
+                let contextFound = false;
+                for (const requiredContext of indicator.context_required) {
+                  if (
+                    pageSource
+                      .toLowerCase()
+                      .includes(requiredContext.toLowerCase()) ||
+                    pageText.toLowerCase().includes(requiredContext.toLowerCase())
+                  ) {
+                    contextFound = true;
+                    break;
+                  }
+                }
+                if (!contextFound) {
+                  includeThread = false;
+                  logger.debug(
+                    `🚫 ${threat.id} excluded - required context not found`
+                  );
                 }
               }
-              if (!contextFound) {
-                includeThread = false;
-                logger.debug(
-                  `🚫 ${threat.id} excluded - required context not found`
-                );
+
+              if (
+                includeThread &&
+                (threat.id === "phi_001_enhanced" || threat.id === "phi_002")
+              ) {
+                const hasLegitimateSSO = checkLegitimateSSO(pageText, pageSource);
+                if (hasLegitimateSSO) {
+                  includeThread = false;
+                  logger.debug(
+                    `🚫 ${threat.id} excluded - legitimate SSO detected`
+                  );
+                }
+              }
+
+              if (includeThread) {
+                filteredThreats.push(threat);
               }
             }
 
-            if (
-              includeThread &&
-              (threat.id === "phi_001_enhanced" || threat.id === "phi_002")
-            ) {
-              const hasLegitimateSSO = checkLegitimateSSO(pageText, pageSource);
-              if (hasLegitimateSSO) {
-                includeThread = false;
-                logger.debug(
-                  `🚫 ${threat.id} excluded - legitimate SSO detected`
-                );
-              }
-            }
+            logger.log(
+              `⏱️ Phishing indicators check (Web Worker): ${filteredThreats.length} threats found, ` +
+              `score: ${backgroundResult.score}, processing time: ${processingTime}ms`
+            );
 
-            if (includeThread) {
-              filteredThreats.push(threat);
-            }
+            // Log per-indicator processing time if available (Web Worker cannot measure per-indicator, so log total only)
+            // If you want per-indicator, use main thread fallback below.
+
+            return { threats: filteredThreats, score: backgroundResult.score };
           }
-
-          logger.log(
-            `⏱️ Phishing indicators check (Web Worker): ${filteredThreats.length} threats found, ` +
-            `score: ${backgroundResult.score}, processing time: ${processingTime}ms`
+        } catch (workerError) {
+          const failureTime = Date.now() - startTime;
+          // CRITICAL FIX: Track time even on Web Worker failure before falling back
+          lastProcessingTime = failureTime;
+          logger.warn(
+            `Web Worker processing failed after ${failureTime}ms, falling back to main thread:`,
+            workerError.message
           );
-
-          return { threats: filteredThreats, score: backgroundResult.score };
         }
-      } catch (workerError) {
-        const failureTime = Date.now() - startTime;
-        // CRITICAL FIX: Track time even on Web Worker failure before falling back
-        lastProcessingTime = failureTime;
-        logger.warn(
-          `Web Worker processing failed after ${failureTime}ms, falling back to main thread:`,
-          workerError.message
-        );
       }
 
       // Fallback to main thread processing with requestIdleCallback optimization
@@ -2086,45 +2116,77 @@ if (window.checkExtensionLoaded) {
               detectionRules.phishing_indicators.length
             );
 
+
             for (let i = startIdx; i < endIdx; i++) {
               const indicator = detectionRules.phishing_indicators[i];
               processedCount++;
-
+              const indicatorStart = performance.now();
               try {
                 let matches = false;
                 let matchDetails = "";
 
-                const pattern = new RegExp(
-                  indicator.pattern,
-                  indicator.flags || "i"
-                );
+                // Modular code-driven logic if flagged in rules file
+                if (indicator.code_driven === true && indicator.code_logic) {
+                  // Supported code-driven logic types: 'substring', 'substring_not', 'allowlist', 'optimized_regex'
+                  // All config comes from the rules file, not hardcoded here
+                  if (indicator.code_logic.type === "substring") {
+                    // All substrings must be present
+                    matches = (indicator.code_logic.substrings || []).every(sub => pageSource.includes(sub));
+                    if (matches) matchDetails = "page source (substring match)";
+                  } else if (indicator.code_logic.type === "substring_not") {
+                    // All substrings must be present, and all not_substrings must be absent
+                    matches = (indicator.code_logic.substrings || []).every(sub => pageSource.includes(sub)) &&
+                              (indicator.code_logic.not_substrings || []).every(sub => !pageSource.includes(sub));
+                    if (matches) matchDetails = "page source (substring + not match)";
+                  } else if (indicator.code_logic.type === "allowlist") {
+                    // If any allowlist phrase is present, skip
+                    const lowerSource = pageSource.toLowerCase();
+                    const isAllowlisted = (indicator.code_logic.allowlist || []).some(phrase => lowerSource.includes(phrase));
+                    if (!isAllowlisted) {
+                      // Use optimized regex from rules file
+                      if (indicator.code_logic.optimized_pattern) {
+                        const optPattern = new RegExp(indicator.code_logic.optimized_pattern, indicator.flags || "i");
+                        if (optPattern.test(pageSource)) {
+                          matches = true;
+                          matchDetails = "page source (optimized regex)";
+                        }
+                      }
+                    }
+                  }
+                } else {
+                  // Default: regex-driven logic
+                  const pattern = new RegExp(
+                    indicator.pattern,
+                    indicator.flags || "i"
+                  );
 
-                // Test against page source
-                if (pattern.test(pageSource)) {
-                  matches = true;
-                  matchDetails = "page source";
-                }
-                // Test against visible text
-                else if (pattern.test(pageText)) {
-                  matches = true;
-                  matchDetails = "page text";
-                }
-                // Test against URL
-                else if (pattern.test(currentUrl)) {
-                  matches = true;
-                  matchDetails = "URL";
-                }
+                  // Test against page source
+                  if (pattern.test(pageSource)) {
+                    matches = true;
+                    matchDetails = "page source";
+                  }
+                  // Test against visible text
+                  else if (pattern.test(pageText)) {
+                    matches = true;
+                    matchDetails = "page text";
+                  }
+                  // Test against URL
+                  else if (pattern.test(currentUrl)) {
+                    matches = true;
+                    matchDetails = "URL";
+                  }
 
-                // Handle additional_checks
-                if (!matches && indicator.additional_checks) {
-                  for (const check of indicator.additional_checks) {
-                    if (
-                      pageSource.includes(check) ||
-                      pageText.includes(check)
-                    ) {
-                      matches = true;
-                      matchDetails = "additional checks";
-                      break;
+                  // Handle additional_checks
+                  if (!matches && indicator.additional_checks) {
+                    for (const check of indicator.additional_checks) {
+                      if (
+                        pageSource.includes(check) ||
+                        pageText.includes(check)
+                      ) {
+                        matches = true;
+                        matchDetails = "additional checks";
+                        break;
+                      }
                     }
                   }
                 }
@@ -2233,6 +2295,11 @@ if (window.checkExtensionLoaded) {
                   `Error processing phishing indicator ${indicator.id}:`,
                   error.message
                 );
+              } finally {
+                const indicatorEnd = performance.now();
+                logger.log(
+                  `⏱️ Phishing indicator [${indicator.id}] processed in ${(indicatorEnd - indicatorStart).toFixed(2)} ms`
+                );
               }
             }
 
@@ -2240,7 +2307,7 @@ if (window.checkExtensionLoaded) {
             if (processedCount < detectionRules.phishing_indicators.length) {
               // Check timeout for main thread processing
               const mainThreadElapsed = Date.now() - mainThreadStartTime;
-              if (mainThreadElapsed > PHISHING_PROCESSING_TIMEOUT) {
+              if (!disablePhishingProcessingTimeout && mainThreadElapsed > PHISHING_PROCESSING_TIMEOUT) {
                 const totalTime = Date.now() - startTime;
                 lastProcessingTime = totalTime; // CRITICAL: Track time on timeout
                 
