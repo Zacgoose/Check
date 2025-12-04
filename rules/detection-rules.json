@@ -454,7 +454,7 @@
     },
     {
       "id": "phi_004",
-      "pattern": "(?:urgent.*(?:action|update|verify)|immediate.*(?:action|attention)|act.*(?:now|immediately)).*(?:microsoft|office|365)",
+      "pattern": "(?:urgent.{0,500}(action|update|verify)|immediate.{0,500}(action|attention)|act.{0,500}(now|immediately)).{0,500}(microsoft|office|365)",
       "flags": "i",
       "severity": "medium",
       "description": "Urgency tactics targeting Microsoft users",
