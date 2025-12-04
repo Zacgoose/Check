@@ -135,7 +135,19 @@ function finalize(result, started) {
   return result;
 }
 
-function processPhishingIndicators(indicators, pageSource, pageText, url) {
+function processPhishingIndicators(indicators, pageSource, pageText, url, options = {}) {
+  // Patch: If scanCleaned is true, use cleaned source for all matching
+  let actualSource = pageSource;
+  let actualText = pageText;
+  if (options.scanCleaned && typeof getCleanPageSource === "function") {
+    actualSource = getCleanPageSource();
+    if (typeof getCleanPageText === "function") {
+      actualText = getCleanPageText();
+    }
+    if (typeof logger !== "undefined" && logger.log) {
+      logger.log(`[rules-engine-core] scanCleaned enabled: using cleaned page source (${actualSource.length} chars)`);
+    }
+  }
   const threats = [];
   let totalScore = 0;
 
@@ -187,14 +199,15 @@ function processPhishingIndicators(indicators, pageSource, pageText, url) {
       };
 
       // Attempt match against full pageSource
-      if (pattern.test(pageSource)) {
+      // Patch: Use actualSource/actualText for matching
+      if (pattern.test(actualSource)) {
         matches = true;
         matchedFrom = "source";
-        snippet = buildSnippet(pageSource, pattern);
-      } else if (pattern.test(pageText)) {
+        snippet = buildSnippet(actualSource, pattern);
+      } else if (pattern.test(actualText)) {
         matches = true;
         matchedFrom = "text";
-        snippet = buildSnippet(pageText, pattern);
+        snippet = buildSnippet(actualText, pattern);
       } else if (pattern.test(url)) {
         matches = true;
         matchedFrom = "url";

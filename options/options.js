@@ -863,6 +863,10 @@ class CheckOptions {
     this.elements.cippServerUrl = document.getElementById("cippServerUrl");
     this.elements.cippTenantId = document.getElementById("cippTenantId");
 
+    // Force main thread phishing processing (debug)
+    this.elements.forceMainThreadPhishingProcessing = document.getElementById("forceMainThreadPhishingProcessing");
+
+
     if (this.elements.enablePageBlocking) {
       this.elements.enablePageBlocking.checked =
         this.config?.enablePageBlocking !== false;
@@ -876,6 +880,9 @@ class CheckOptions {
     }
     if (this.elements.cippTenantId) {
       this.elements.cippTenantId.value = this.config?.cippTenantId || "";
+    }
+    if (this.elements.forceMainThreadPhishingProcessing) {
+      this.elements.forceMainThreadPhishingProcessing.checked = this.config?.forceMainThreadPhishingProcessing || false;
     }
 
     // UI settings
@@ -1120,12 +1127,14 @@ class CheckOptions {
   }
 
   gatherFormData() {
-    const formData = {
+       const formData = {
       // Extension settings
       enablePageBlocking: this.elements.enablePageBlocking?.checked !== false,
       enableCippReporting: this.elements.enableCippReporting?.checked || false,
       cippServerUrl: this.elements.cippServerUrl?.value || "",
       cippTenantId: this.elements.cippTenantId?.value || "",
+      // Debug: force main thread phishing processing
+      forceMainThreadPhishingProcessing: this.elements.forceMainThreadPhishingProcessing?.checked || false,
 
       // UI settings
       showNotifications: this.elements.showNotifications?.checked || false,
@@ -1520,11 +1529,19 @@ class CheckOptions {
         )
         .join("");
 
+      // Code-driven indicators summary
+      const codeDrivenIndicators = config.phishing_indicators.filter(r => r.code_driven);
+      let codeDrivenHtml = '';
+      if (codeDrivenIndicators.length > 0) {
+        codeDrivenHtml = `<div class="config-item"><strong>Code-Driven Indicators:</strong> <span class="config-value">${codeDrivenIndicators.length}</span></div>`;
+      }
+
       sections.push(`
         <div class="config-section">
           <div class="config-section-title">Phishing Indicators (${config.phishing_indicators.length} total)</div>
           <div class="config-item"><strong>Critical Severity Rules:</strong> <span class="config-value">${criticalCount}</span></div>
           ${indicatorSections}
+          ${codeDrivenHtml}
         </div>
       `);
     }

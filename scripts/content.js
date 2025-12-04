@@ -29,11 +29,13 @@ if (window.checkExtensionLoaded) {
   let lastPageSourceScanTime = 0; // When the page source was captured
   let developerConsoleLoggingEnabled = false; // Cache for developer console logging setting
   let showingBanner = false; // Flag to prevent DOM monitoring loops when showing banners
+  let escalatedToBlock = false; // Flag to indicate page has been escalated to block - stop all monitoring
   const MAX_SCANS = 5; // Prevent infinite scanning - reduced for performance
   const SCAN_COOLDOWN = 1200; // 1200ms between scans - increased for performance
   const THREAT_TRIGGERED_COOLDOWN = 500; // Shorter cooldown for threat-triggered re-scans
   const WARNING_THRESHOLD = 3; // Block if 4+ warning threats found (escalation threshold)
   const PHISHING_PROCESSING_TIMEOUT = 10000; // 10 second timeout for phishing indicator processing
+  let forceMainThreadPhishingProcessing = false; // Toggle for debugging main thread only
   const SLOW_PAGE_RESCAN_SKIP_THRESHOLD = 5000; // Don't re-scan if initial scan took > 5s
   let lastProcessingTime = 0; // Track last phishing indicator processing time
   let lastPageSourceHash = null; // Hash of page source to detect real changes
@@ -509,6 +511,9 @@ if (window.checkExtensionLoaded) {
 
       developerConsoleLoggingEnabled =
         config.enableDeveloperConsoleLogging === true; // "Developer Mode" in UI
+
+      // Also load forceMainThreadPhishingProcessing
+      forceMainThreadPhishingProcessing = config.forceMainThreadPhishingProcessing === true;
 
       // Only setup console capture if developer mode is enabled
       if (developerConsoleLoggingEnabled) {
@@ -1975,97 +1980,111 @@ if (window.checkExtensionLoaded) {
         logger.log(`   ${i + 1}. ${ind.id}: ${ind.pattern} (${ind.severity})`);
       });
 
-      // Try Web Worker for background processing first with timeout protection
-      logger.log(`⏱️ PERF: Attempting background processing with Web Worker`);
-      try {
-        const backgroundResult = await Promise.race([
-          processPhishingIndicatorsInBackground(
+      // If forceMainThreadPhishingProcessing is enabled, skip Web Worker and use main thread directly
+      if (forceMainThreadPhishingProcessing) {
+        logger.log("⏱️ DEBUG: Forcing main thread phishing processing (Web Worker disabled by UI toggle)");
+      } else {
+        // Try Web Worker for background processing first with timeout protection
+        logger.log(`⏱️ PERF: Attempting background processing with Web Worker`);
+        try {
+          const timeoutMs = PHISHING_PROCESSING_TIMEOUT;
+          const backgroundPromise = processPhishingIndicatorsInBackground(
             detectionRules.phishing_indicators,
             pageSource,
             pageText,
             currentUrl
-          ),
-          new Promise((_, reject) => 
-            setTimeout(
-              () => reject(new Error('Web Worker timeout')), 
-              PHISHING_PROCESSING_TIMEOUT
-            )
-          )
-        ]);
-
-        if (
-          backgroundResult &&
-          (backgroundResult.threats.length > 0 || backgroundResult.score >= 0)
-        ) {
-          const processingTime = Date.now() - startTime;
-          lastProcessingTime = processingTime; // CRITICAL: Track time
-          
-          logger.log(
-            `⏱️ PERF: Background processing completed successfully in ${processingTime}ms`
           );
+          const resultPromise = timeoutMs
+            ? Promise.race([
+                backgroundPromise,
+                new Promise((_, reject) =>
+                  setTimeout(
+                    () => reject(new Error('Web Worker timeout')),
+                    timeoutMs
+                  )
+                ),
+              ])
+            : backgroundPromise;
 
-          // Apply context filtering and SSO checks to background results
-          const filteredThreats = [];
-          for (const threat of backgroundResult.threats) {
-            let includeThread = true;
+          const backgroundResult = await resultPromise;
 
-            const indicator = detectionRules.phishing_indicators.find(
-              (ind) => ind.id === threat.id
+          if (
+            backgroundResult &&
+            (backgroundResult.threats.length > 0 || backgroundResult.score >= 0)
+          ) {
+            const processingTime = Date.now() - startTime;
+            lastProcessingTime = processingTime; // CRITICAL: Track time
+
+            logger.log(
+              `⏱️ PERF: Background processing completed successfully in ${processingTime}ms`
             );
-            if (indicator?.context_required) {
-              let contextFound = false;
-              for (const requiredContext of indicator.context_required) {
-                if (
-                  pageSource
-                    .toLowerCase()
-                    .includes(requiredContext.toLowerCase()) ||
-                  pageText.toLowerCase().includes(requiredContext.toLowerCase())
-                ) {
-                  contextFound = true;
-                  break;
+
+            // Apply context filtering and SSO checks to background results
+            const filteredThreats = [];
+            for (const threat of backgroundResult.threats) {
+              let includeThread = true;
+
+              const indicator = detectionRules.phishing_indicators.find(
+                (ind) => ind.id === threat.id
+              );
+              if (indicator?.context_required) {
+                let contextFound = false;
+                for (const requiredContext of indicator.context_required) {
+                  if (
+                    pageSource
+                      .toLowerCase()
+                      .includes(requiredContext.toLowerCase()) ||
+                    pageText.toLowerCase().includes(requiredContext.toLowerCase())
+                  ) {
+                    contextFound = true;
+                    break;
+                  }
+                }
+                if (!contextFound) {
+                  includeThread = false;
+                  logger.debug(
+                    `🚫 ${threat.id} excluded - required context not found`
+                  );
                 }
               }
-              if (!contextFound) {
-                includeThread = false;
-                logger.debug(
-                  `🚫 ${threat.id} excluded - required context not found`
-                );
+
+              if (
+                includeThread &&
+                (threat.id === "phi_001_enhanced" || threat.id === "phi_002")
+              ) {
+                const hasLegitimateSSO = checkLegitimateSSO(pageText, pageSource);
+                if (hasLegitimateSSO) {
+                  includeThread = false;
+                  logger.debug(
+                    `🚫 ${threat.id} excluded - legitimate SSO detected`
+                  );
+                }
+              }
+
+              if (includeThread) {
+                filteredThreats.push(threat);
               }
             }
 
-            if (
-              includeThread &&
-              (threat.id === "phi_001_enhanced" || threat.id === "phi_002")
-            ) {
-              const hasLegitimateSSO = checkLegitimateSSO(pageText, pageSource);
-              if (hasLegitimateSSO) {
-                includeThread = false;
-                logger.debug(
-                  `🚫 ${threat.id} excluded - legitimate SSO detected`
-                );
-              }
-            }
+            logger.log(
+              `⏱️ Phishing indicators check (Web Worker): ${filteredThreats.length} threats found, ` +
+              `score: ${backgroundResult.score}, processing time: ${processingTime}ms`
+            );
 
-            if (includeThread) {
-              filteredThreats.push(threat);
-            }
+            // Log per-indicator processing time if available (Web Worker cannot measure per-indicator, so log total only)
+            // If you want per-indicator, use main thread fallback below.
+
+            return { threats: filteredThreats, score: backgroundResult.score };
           }
-
-          logger.log(
-            `⏱️ Phishing indicators check (Web Worker): ${filteredThreats.length} threats found, ` +
-            `score: ${backgroundResult.score}, processing time: ${processingTime}ms`
+        } catch (workerError) {
+          const failureTime = Date.now() - startTime;
+          // CRITICAL FIX: Track time even on Web Worker failure before falling back
+          lastProcessingTime = failureTime;
+          logger.warn(
+            `Web Worker processing failed after ${failureTime}ms, falling back to main thread:`,
+            workerError.message
           );
-
-          return { threats: filteredThreats, score: backgroundResult.score };
         }
-      } catch (workerError) {
-        const failureTime = Date.now() - startTime;
-        // CRITICAL FIX: Track time even on Web Worker failure before falling back
-        lastProcessingTime = failureTime;
-        logger.warn(
-          `Web Worker processing failed after ${failureTime}ms, falling back to main thread:`,
-          workerError.message
-        );
       }
 
       // Fallback to main thread processing with requestIdleCallback optimization
@@ -2086,45 +2105,77 @@ if (window.checkExtensionLoaded) {
               detectionRules.phishing_indicators.length
             );
 
+
             for (let i = startIdx; i < endIdx; i++) {
               const indicator = detectionRules.phishing_indicators[i];
               processedCount++;
-
+              const indicatorStart = performance.now();
               try {
                 let matches = false;
                 let matchDetails = "";
 
-                const pattern = new RegExp(
-                  indicator.pattern,
-                  indicator.flags || "i"
-                );
+                // Modular code-driven logic if flagged in rules file
+                if (indicator.code_driven === true && indicator.code_logic) {
+                  // Supported code-driven logic types: 'substring', 'substring_not', 'allowlist', 'optimized_regex'
+                  // All config comes from the rules file, not hardcoded here
+                  if (indicator.code_logic.type === "substring") {
+                    // All substrings must be present
+                    matches = (indicator.code_logic.substrings || []).every(sub => pageSource.includes(sub));
+                    if (matches) matchDetails = "page source (substring match)";
+                  } else if (indicator.code_logic.type === "substring_not") {
+                    // All substrings must be present, and all not_substrings must be absent
+                    matches = (indicator.code_logic.substrings || []).every(sub => pageSource.includes(sub)) &&
+                              (indicator.code_logic.not_substrings || []).every(sub => !pageSource.includes(sub));
+                    if (matches) matchDetails = "page source (substring + not match)";
+                  } else if (indicator.code_logic.type === "allowlist") {
+                    // If any allowlist phrase is present, skip
+                    const lowerSource = pageSource.toLowerCase();
+                    const isAllowlisted = (indicator.code_logic.allowlist || []).some(phrase => lowerSource.includes(phrase));
+                    if (!isAllowlisted) {
+                      // Use optimized regex from rules file
+                      if (indicator.code_logic.optimized_pattern) {
+                        const optPattern = new RegExp(indicator.code_logic.optimized_pattern, indicator.flags || "i");
+                        if (optPattern.test(pageSource)) {
+                          matches = true;
+                          matchDetails = "page source (optimized regex)";
+                        }
+                      }
+                    }
+                  }
+                } else {
+                  // Default: regex-driven logic
+                  const pattern = new RegExp(
+                    indicator.pattern,
+                    indicator.flags || "i"
+                  );
 
-                // Test against page source
-                if (pattern.test(pageSource)) {
-                  matches = true;
-                  matchDetails = "page source";
-                }
-                // Test against visible text
-                else if (pattern.test(pageText)) {
-                  matches = true;
-                  matchDetails = "page text";
-                }
-                // Test against URL
-                else if (pattern.test(currentUrl)) {
-                  matches = true;
-                  matchDetails = "URL";
-                }
+                  // Test against page source
+                  if (pattern.test(pageSource)) {
+                    matches = true;
+                    matchDetails = "page source";
+                  }
+                  // Test against visible text
+                  else if (pattern.test(pageText)) {
+                    matches = true;
+                    matchDetails = "page text";
+                  }
+                  // Test against URL
+                  else if (pattern.test(currentUrl)) {
+                    matches = true;
+                    matchDetails = "URL";
+                  }
 
-                // Handle additional_checks
-                if (!matches && indicator.additional_checks) {
-                  for (const check of indicator.additional_checks) {
-                    if (
-                      pageSource.includes(check) ||
-                      pageText.includes(check)
-                    ) {
-                      matches = true;
-                      matchDetails = "additional checks";
-                      break;
+                  // Handle additional_checks
+                  if (!matches && indicator.additional_checks) {
+                    for (const check of indicator.additional_checks) {
+                      if (
+                        pageSource.includes(check) ||
+                        pageText.includes(check)
+                      ) {
+                        matches = true;
+                        matchDetails = "additional checks";
+                        break;
+                      }
                     }
                   }
                 }
@@ -2206,11 +2257,52 @@ if (window.checkExtensionLoaded) {
                   logger.warn(
                     `🚨 PHISHING INDICATOR DETECTED: ${indicator.id} - ${indicator.description}`
                   );
+
+                  // PERFORMANCE: Early exit immediately when blocking threshold is reached
+                  // Don't waste resources processing more indicators if we're already going to block
+                  const blockThreats = threats.filter(t => t.action === 'block').length;
+                  const criticalThreats = threats.filter(t => t.severity === 'critical').length;
+                  const highSeverityThreats = threats.filter(
+                    t => t.severity === 'high' || t.severity === 'critical'
+                  ).length;
+
+                  // Exit early if:
+                  // 1. Any blocking threat found (action='block')
+                  // 2. Any critical severity threat found (instant block)
+                  // 3. Multiple high/critical severity threats exceed escalation threshold
+                  if (blockThreats > 0 || criticalThreats > 0 || highSeverityThreats >= WARNING_THRESHOLD) {
+                    const totalTime = Date.now() - startTime;
+                    lastProcessingTime = totalTime;
+                    
+                    logger.log(
+                      `⚡ EARLY EXIT: Blocking threshold reached after processing ${processedCount}/${detectionRules.phishing_indicators.length} indicators`
+                    );
+                    logger.log(
+                      `   - Block threats: ${blockThreats}`
+                    );
+                    logger.log(
+                      `   - Critical threats: ${criticalThreats}`
+                    );
+                    logger.log(
+                      `   - High+ severity threats: ${highSeverityThreats}/${WARNING_THRESHOLD}`
+                    );
+                    logger.log(
+                      `⏱️ Phishing indicators check (Main Thread - EARLY EXIT): ${threats.length} threats found, ` +
+                      `score: ${totalScore}, time: ${totalTime}ms`
+                    );
+                    resolve({ threats, score: totalScore });
+                    return; // Exit immediately - stop all processing
+                  }
                 }
               } catch (error) {
                 logger.warn(
                   `Error processing phishing indicator ${indicator.id}:`,
                   error.message
+                );
+              } finally {
+                const indicatorEnd = performance.now();
+                logger.log(
+                  `⏱️ Phishing indicator [${indicator.id}] processed in ${(indicatorEnd - indicatorStart).toFixed(2)} ms`
                 );
               }
             }
@@ -2667,17 +2759,45 @@ if (window.checkExtensionLoaded) {
    * Main protection logic following CORRECTED specification
    */
   async function runProtection(isRerun = false) {
+    // Early exit if page has been escalated to block
+    if (escalatedToBlock) {
+      logger.log(
+        `🛑 runProtection() called but page already escalated to block - ignoring`
+      );
+      return;
+    }
+
+    // Early exit if a banner is already displayed and this is a re-run
+    if (isRerun && showingBanner) {
+      logger.log(
+        `🛑 runProtection() called but banner already displayed - ignoring re-scan`
+      );
+      return;
+    }
+
     try {
       logger.log(
         `🚀 Starting protection analysis ${
           isRerun ? "(re-run)" : "(initial)"
         } for ${window.location.href}`
       );
-      logger.log(
-        `📄 Page info: ${document.querySelectorAll("*").length} elements, ${
-          document.body?.textContent?.length || 0
-        } chars content`
-      );
+      let cleanedSourceLength = null;
+      if (typeof arguments[1] === "object" && arguments[1]?.scanCleaned) {
+        // If scanCleaned is true, get cleaned page source length
+        const cleanedSource = typeof getPageSource === "function" ? getPageSource(true) : null;
+        cleanedSourceLength = cleanedSource ? cleanedSource.length : null;
+        logger.log(
+          `📄 Page info: ${document.querySelectorAll("*").length} elements, ${
+            document.body?.textContent?.length || 0
+          } chars content | Cleaned page source: ${cleanedSourceLength || "N/A"} chars`
+        );
+      } else {
+        logger.log(
+          `📄 Page info: ${document.querySelectorAll("*").length} elements, ${
+            document.body?.textContent?.length || 0
+          } chars content`
+        );
+      }
 
       if (isInIframe()) {
         logger.log("⚠️ Page is in an iframe");
@@ -4202,6 +4322,7 @@ if (window.checkExtensionLoaded) {
   /**
    * Set up DOM monitoring to catch delayed phishing content
    */
+  let domScanTimeout = null; // Debounce timer for DOM-triggered scans
   function setupDOMMonitoring() {
     try {
       // Don't set up multiple observers
@@ -4218,8 +4339,14 @@ if (window.checkExtensionLoaded) {
         `Body content length: ${document.body?.textContent?.length || 0} chars`
       );
 
-      domObserver = new MutationObserver(async (mutations) => {
+  domObserver = new MutationObserver(async (mutations) => {
         try {
+          // Immediately exit if page has been escalated to block
+          if (escalatedToBlock) {
+            logger.debug("🛑 Page escalated to block - ignoring DOM mutations");
+            return;
+          }
+          
           let shouldRerun = false;
           let newElementsAdded = false;
 
@@ -4229,6 +4356,12 @@ if (window.checkExtensionLoaded) {
               // Check for added forms, inputs, or scripts
               for (const node of mutation.addedNodes) {
                 if (node.nodeType === Node.ELEMENT_NODE) {
+                  // Skip extension-injected elements (banner, badges, overlays, etc.)
+                  if (injectedElements.has(node)) {
+                    logger.debug(`Skipping extension-injected element: ${node.tagName?.toLowerCase()} (ID: ${node.id})`);
+                    continue;
+                  }
+                  
                   newElementsAdded = true;
                   const tagName = node.tagName?.toLowerCase();
 
@@ -4330,7 +4463,7 @@ if (window.checkExtensionLoaded) {
             if (shouldRerun) break;
           }
 
-          if (shouldRerun && !showingBanner) {
+          if (shouldRerun && !showingBanner && !escalatedToBlock) {
             // Check scan rate limiting
             if (scanCount >= MAX_SCANS) {
               logger.log(
@@ -4340,19 +4473,33 @@ if (window.checkExtensionLoaded) {
             }
 
             logger.log(
-              "🔄 Significant DOM changes detected - re-running protection analysis"
+              "🔄 Significant DOM changes detected - scheduling protection analysis (debounced)"
             );
             logger.log(
               `Page now has ${document.querySelectorAll("*").length} elements`
             );
-            // Enhanced debounce delay from 500ms to 1000ms for performance
-            setTimeout(() => {
+            // Debounce: clear any pending scan and schedule a new one
+            if (domScanTimeout) {
+              clearTimeout(domScanTimeout);
+            }
+            domScanTimeout = setTimeout(() => {
               runProtection(true);
+              domScanTimeout = null;
             }, 1000);
-          } else if (showingBanner) {
+          } else if (escalatedToBlock) {
+            logger.debug("🛑 Page escalated to block - ignoring DOM changes during debounce check");
+          } else if (showingBanner && !escalatedToBlock) {
             logger.debug(
-              "🚫 Ignoring DOM changes while banner is being displayed"
+              "🔍 DOM changes detected while banner is displayed - scanning cleaned page source (debounced)"
             );
+            // Debounce: clear any pending scan and schedule a new one
+            if (domScanTimeout) {
+              clearTimeout(domScanTimeout);
+            }
+            domScanTimeout = setTimeout(() => {
+              runProtection(true, { scanCleaned: true });
+              domScanTimeout = null;
+            }, 1000);
           } else if (newElementsAdded) {
             logger.debug(
               "🔍 DOM changes detected but not significant enough to re-run analysis"
@@ -4372,10 +4519,20 @@ if (window.checkExtensionLoaded) {
 
       // Fallback: Check periodically for content that might have loaded without triggering observer
       const checkInterval = setInterval(() => {
+        // Stop if page has been escalated to block
+        if (escalatedToBlock) {
+          logger.debug("🛑 Page escalated to block - stopping fallback timer");
+          clearInterval(checkInterval);
+          return;
+        }
+        
         if (showingBanner) {
           logger.debug(
-            "🚫 Fallback timer skipping check while banner is displayed"
+            "🔍 Fallback timer scanning cleaned page source while banner is displayed"
           );
+          // Scan cleaned page source (banner and injected elements removed)
+          runProtection(true, { scanCleaned: true });
+          clearInterval(checkInterval);
           return;
         }
 
@@ -4395,6 +4552,11 @@ if (window.checkExtensionLoaded) {
       setTimeout(() => {
         clearInterval(checkInterval);
         stopDOMMonitoring();
+        // Also clear any pending DOM scan debounce
+        if (domScanTimeout) {
+          clearTimeout(domScanTimeout);
+          domScanTimeout = null;
+        }
         logger.log("🛑 DOM monitoring timeout reached - stopping");
       }, 30000);
     } catch (error) {
@@ -4429,6 +4591,13 @@ if (window.checkExtensionLoaded) {
    */
   function showBlockingOverlay(reason, analysisData) {
     try {
+      // CRITICAL: Set escalated to block flag FIRST to prevent any further scans
+      escalatedToBlock = true;
+      
+      // CRITICAL: Immediately stop all monitoring and processing to save resources
+      // The page is being blocked, so no further analysis is needed
+      stopDOMMonitoring();
+      
       logger.log(
         "Redirecting to Chrome blocking page for security - no user override allowed"
       );
@@ -5347,7 +5516,7 @@ if (window.checkExtensionLoaded) {
   /**
    * Message listener for popup communication
    */
-  chrome.runtime.onMessage.addListener((message, sendResponse) => {
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === "SHOW_VALID_BADGE") {
       try {
         logger.log("📋 VALID BADGE: Received request to show valid page badge");
