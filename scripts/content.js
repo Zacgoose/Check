@@ -2269,25 +2269,40 @@ if (window.checkExtensionLoaded) {
                     `🚨 PHISHING INDICATOR DETECTED: ${indicator.id} - ${indicator.description}`
                   );
 
-                  // Don't waste time processing more indicators if we're already going to block
+                  // PERFORMANCE: Early exit immediately when blocking threshold is reached
+                  // Don't waste resources processing more indicators if we're already going to block
                   const blockThreats = threats.filter(t => t.action === 'block').length;
+                  const criticalThreats = threats.filter(t => t.severity === 'critical').length;
                   const highSeverityThreats = threats.filter(
                     t => t.severity === 'high' || t.severity === 'critical'
                   ).length;
 
-                  if (blockThreats > 0 || highSeverityThreats >= WARNING_THRESHOLD) {
+                  // Exit early if:
+                  // 1. Any blocking threat found (action='block')
+                  // 2. Any critical severity threat found (instant block)
+                  // 3. Multiple high/critical severity threats exceed escalation threshold
+                  if (blockThreats > 0 || criticalThreats > 0 || highSeverityThreats >= WARNING_THRESHOLD) {
                     const totalTime = Date.now() - startTime;
                     lastProcessingTime = totalTime;
                     
                     logger.log(
-                      `⚡ Early termination: blocking threshold reached after processing ${processedCount}/${detectionRules.phishing_indicators.length} indicators`
+                      `⚡ EARLY EXIT: Blocking threshold reached after processing ${processedCount}/${detectionRules.phishing_indicators.length} indicators`
+                    );
+                    logger.log(
+                      `   - Block threats: ${blockThreats}`
+                    );
+                    logger.log(
+                      `   - Critical threats: ${criticalThreats}`
+                    );
+                    logger.log(
+                      `   - High+ severity threats: ${highSeverityThreats}/${WARNING_THRESHOLD}`
                     );
                     logger.log(
                       `⏱️ Phishing indicators check (Main Thread - EARLY EXIT): ${threats.length} threats found, ` +
                       `score: ${totalScore}, time: ${totalTime}ms`
                     );
                     resolve({ threats, score: totalScore });
-                    return; // Exit immediately
+                    return; // Exit immediately - stop all processing
                   }
                 }
               } catch (error) {
@@ -4556,6 +4571,10 @@ if (window.checkExtensionLoaded) {
    */
   function showBlockingOverlay(reason, analysisData) {
     try {
+      // CRITICAL: Immediately stop all monitoring and processing to save resources
+      // The page is being blocked, so no further analysis is needed
+      stopDOMMonitoring();
+      
       logger.log(
         "Redirecting to Chrome blocking page for security - no user override allowed"
       );
