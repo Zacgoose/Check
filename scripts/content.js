@@ -2116,7 +2116,7 @@ if (window.checkExtensionLoaded) {
 
                 // Modular code-driven logic if flagged in rules file
                 if (indicator.code_driven === true && indicator.code_logic) {
-                  // Supported code-driven logic types: 'substring', 'substring_not', 'allowlist', 'substring_not_allowlist', 'substring_or_regex'
+                  // Supported code-driven logic types: 'substring', 'substring_not', 'allowlist', 'substring_not_allowlist', 'substring_or_regex', 'substring_with_exclusions'
                   // All config comes from the rules file, not hardcoded here
                   if (indicator.code_logic.type === "substring") {
                     // All substrings must be present
@@ -2178,6 +2178,33 @@ if (window.checkExtensionLoaded) {
                       if (pattern.test(pageSource)) {
                         matches = true;
                         matchDetails = "page source (regex match)";
+                      }
+                    }
+                  } else if (indicator.code_logic.type === "substring_with_exclusions") {
+                    // Check for matching patterns but exclude if exclusion phrases are present
+                    const lowerSource = pageSource.toLowerCase();
+                    
+                    // First check exclusions - if any found, skip this rule entirely
+                    const excludeList = indicator.code_logic.exclude_if_contains || [];
+                    const hasExclusion = excludeList.some(excl => 
+                      lowerSource.includes(excl.toLowerCase())
+                    );
+                    
+                    if (!hasExclusion) {
+                      // No exclusions found, now check for matches
+                      if (indicator.code_logic.match_any) {
+                        // Simple match - check if any phrase is present
+                        matches = indicator.code_logic.match_any.some(phrase => 
+                          lowerSource.includes(phrase.toLowerCase())
+                        );
+                        if (matches) matchDetails = "page source (substring with exclusions)";
+                      } else if (indicator.code_logic.match_pattern_parts) {
+                        // Complex match - all pattern parts must be present
+                        const parts = indicator.code_logic.match_pattern_parts;
+                        matches = parts.every(partGroup => 
+                          partGroup.some(part => lowerSource.includes(part.toLowerCase()))
+                        );
+                        if (matches) matchDetails = "page source (pattern parts with exclusions)";
                       }
                     }
                   }
@@ -2362,7 +2389,82 @@ if (window.checkExtensionLoaded) {
                   `⏱️ Phishing indicators check (Main Thread - TIMEOUT): ${threats.length} threats found, ` +
                   `score: ${totalScore}, total time: ${totalTime}ms`
                 );
+                
+                // Resolve immediately with current results for display
                 resolve({ threats, score: totalScore });
+                
+                // Continue processing remaining indicators in background
+                const remainingIndicators = detectionRules.phishing_indicators.slice(processedCount);
+                logger.log(`🔄 Continuing to process ${remainingIndicators.length} remaining indicators in background`);
+                
+                // Process remaining indicators asynchronously
+                setTimeout(async () => {
+                  for (const indicator of remainingIndicators) {
+                    try {
+                      const indicatorStart = performance.now();
+                      let matches = false;
+                      let matchDetails = "";
+                      
+                      // Use same code-driven or regex logic
+                      if (indicator.code_driven === true && indicator.code_logic) {
+                        // Same code-driven logic as above
+                        const lowerSource = pageSource.toLowerCase();
+                        
+                        if (indicator.code_logic.type === "substring_or_regex") {
+                          for (const sub of (indicator.code_logic.substrings || [])) {
+                            if (lowerSource.includes(sub.toLowerCase())) {
+                              matches = true;
+                              matchDetails = "page source (substring match)";
+                              break;
+                            }
+                          }
+                          if (!matches && indicator.code_logic.regex) {
+                            const pattern = new RegExp(indicator.code_logic.regex, indicator.code_logic.flags || "i");
+                            if (pattern.test(pageSource)) {
+                              matches = true;
+                              matchDetails = "page source (regex match)";
+                            }
+                          }
+                        } else if (indicator.code_logic.type === "substring_with_exclusions") {
+                          const excludeList = indicator.code_logic.exclude_if_contains || [];
+                          const hasExclusion = excludeList.some(excl => lowerSource.includes(excl.toLowerCase()));
+                          
+                          if (!hasExclusion) {
+                            if (indicator.code_logic.match_any) {
+                              matches = indicator.code_logic.match_any.some(phrase => 
+                                lowerSource.includes(phrase.toLowerCase())
+                              );
+                            }
+                          }
+                        }
+                      } else {
+                        const pattern = new RegExp(indicator.pattern, indicator.flags || "i");
+                        if (pattern.test(pageSource)) {
+                          matches = true;
+                          matchDetails = "page source";
+                        }
+                      }
+                      
+                      if (matches) {
+                        logger.log(`🔄 Background processing found threat: ${indicator.id}`);
+                        // Check if we need to escalate to block mode
+                        if (indicator.severity === 'critical' || indicator.action === 'block') {
+                          logger.warn(`⚠️ Critical threat detected in background processing: ${indicator.id}`);
+                          logger.warn(`🔄 Re-triggering page scan to apply block action`);
+                          // Trigger a re-scan to apply the block
+                          await performPhishingDetection(true);
+                        }
+                      }
+                      
+                      const indicatorEnd = performance.now();
+                      logger.log(`⏱️ Background indicator [${indicator.id}] processed in ${(indicatorEnd - indicatorStart).toFixed(2)} ms`);
+                    } catch (error) {
+                      logger.warn(`Error in background processing of ${indicator.id}:`, error.message);
+                    }
+                  }
+                  logger.log(`✅ Background processing completed`);
+                }, 100);
+                
                 return;
               }
 

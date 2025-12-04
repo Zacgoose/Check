@@ -264,6 +264,38 @@ function processPhishingIndicators(indicators, pageSource, pageText, url, option
               snippet = buildSnippet(actualSource, pattern);
             }
           }
+        } else if (ind.code_logic.type === "substring_with_exclusions") {
+          const lowerSource = actualSource.toLowerCase();
+          
+          // First check exclusions
+          const excludeList = ind.code_logic.exclude_if_contains || [];
+          const hasExclusion = excludeList.some(excl => 
+            lowerSource.includes(excl.toLowerCase())
+          );
+          
+          if (!hasExclusion) {
+            if (ind.code_logic.match_any) {
+              // Simple match - check if any phrase is present
+              for (const phrase of ind.code_logic.match_any) {
+                if (lowerSource.includes(phrase.toLowerCase())) {
+                  matches = true;
+                  matchedFrom = "source (substring with exclusions)";
+                  snippet = phrase;
+                  break;
+                }
+              }
+            } else if (ind.code_logic.match_pattern_parts) {
+              // Complex match - all pattern parts must be present
+              const parts = ind.code_logic.match_pattern_parts;
+              matches = parts.every(partGroup => 
+                partGroup.some(part => lowerSource.includes(part.toLowerCase()))
+              );
+              if (matches) {
+                matchedFrom = "source (pattern parts with exclusions)";
+                snippet = parts.map(p => p.join('|')).join(' + ');
+              }
+            }
+          }
         }
       } else {
         // Default regex-driven logic

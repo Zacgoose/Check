@@ -624,6 +624,20 @@
     },
     {
       "id": "phi_019_malicious_obfuscation",
+      "code_driven": true,
+      "code_logic": {
+        "type": "substring_or_regex",
+        "substrings": [
+          "atob(",
+          "unescape(",
+          "eval(",
+          ".split('')",
+          ".reverse()",
+          "String.fromCharCode("
+        ],
+        "regex": "(?:(?:var|let|const)\\s+\\w+\\s*=\\s*(?:atob|unescape)\\([^)]+\\);\\s*eval\\(\\w+\\)|\\w+\\.split\\(['\"]['\"]\\)\\.reverse\\(\\)\\.join\\(['\"]['\"]\\)|String\\.fromCharCode\\((?:\\d+,\\s*){10,}\\d+\\))",
+        "flags": "i"
+      },
       "pattern": "(?:(?:var|let|const)\\s+\\w+\\s*=\\s*(?:atob|unescape)\\([^)]+\\);\\s*eval\\(\\w+\\)|\\w+\\.split\\(['\"]['\"]\\)\\.reverse\\(\\)\\.join\\(['\"]['\"]\\)|String\\.fromCharCode\\((?:\\d+,\\s*){10,}\\d+\\))",
       "flags": "i",
       "severity": "critical",
@@ -634,6 +648,36 @@
     },
     {
       "id": "phi_001_enhanced",
+      "code_driven": true,
+      "code_logic": {
+        "type": "substring_with_exclusions",
+        "match_any": [
+          "secure-microsoft",
+          "secure-office",
+          "secure-365",
+          "secure-outlook",
+          "microsoft-secure",
+          "microsoft-login",
+          "microsoft-auth",
+          "office-secure",
+          "office-login",
+          "office-auth",
+          "365-secure",
+          "365-login",
+          "365-auth"
+        ],
+        "exclude_if_contains": [
+          "sign in with microsoft",
+          "continue with microsoft",
+          "login with microsoft",
+          "authenticate with microsoft",
+          "sso microsoft",
+          "oauth microsoft",
+          ".auth/login/",
+          "azure static web apps",
+          "easy auth"
+        ]
+      },
       "pattern": "(?!.*(?:sign\\s+in\\s+with\\s+microsoft|continue\\s+with\\s+microsoft|login\\s+with\\s+microsoft|authenticate\\s+with\\s+microsoft|sso\\s+microsoft|oauth\\s+microsoft|\\.auth/login/|azure\\s+static\\s+web\\s+apps|easy\\s+auth))(?:secure-?(?:microsoft|office|365|outlook)|microsoft-?(?:secure|login|auth)|office-?(?:secure|login|auth)|365-?(?:secure|login|auth))",
       "flags": "i",
       "severity": "critical",
@@ -644,6 +688,27 @@
     },
     {
       "id": "phi_002",
+      "code_driven": true,
+      "code_logic": {
+        "type": "substring_with_exclusions",
+        "match_pattern_parts": [
+          ["microsoft", "office", "365"],
+          ["security", "verification", "account"],
+          ["team", "department", "support"]
+        ],
+        "exclude_if_contains": [
+          "sign in with microsoft",
+          "continue with microsoft",
+          "login with microsoft",
+          "sso",
+          "oauth",
+          "third party auth",
+          "third-party auth",
+          ".auth/login/",
+          "azure static web apps",
+          "easy auth"
+        ]
+      },
       "pattern": "(?!.*(?:sign\\s+in\\s+with\\s+microsoft|continue\\s+with\\s+microsoft|login\\s+with\\s+microsoft|sso|oauth|third.?party\\s+auth|\\.auth/login/|azure\\s+static\\s+web\\s+apps|easy\\s+auth))(?:microsoft|office|365).{0,500}(?:security|verification|account).{0,300}(?:team|department|support)",
       "flags": "i",
       "severity": "high",
