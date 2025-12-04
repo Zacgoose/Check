@@ -2116,7 +2116,7 @@ if (window.checkExtensionLoaded) {
 
                 // Modular code-driven logic if flagged in rules file
                 if (indicator.code_driven === true && indicator.code_logic) {
-                  // Supported code-driven logic types: 'substring', 'substring_not', 'allowlist', 'optimized_regex'
+                  // Supported code-driven logic types: 'substring', 'substring_not', 'allowlist', 'substring_not_allowlist', 'substring_or_regex'
                   // All config comes from the rules file, not hardcoded here
                   if (indicator.code_logic.type === "substring") {
                     // All substrings must be present
@@ -2139,6 +2139,45 @@ if (window.checkExtensionLoaded) {
                           matches = true;
                           matchDetails = "page source (optimized regex)";
                         }
+                      }
+                    }
+                  } else if (indicator.code_logic.type === "substring_not_allowlist") {
+                    // Check if substring is present, then verify it's not from an allowed source
+                    const substring = indicator.code_logic.substring;
+                    const allowlist = indicator.code_logic.allowlist || [];
+                    
+                    if (substring && pageSource.includes(substring)) {
+                      // Substring found, now check if any allowlisted domain is also present
+                      const lowerSource = pageSource.toLowerCase();
+                      const isAllowed = allowlist.some(allowed => 
+                        lowerSource.includes(allowed.toLowerCase())
+                      );
+                      
+                      if (!isAllowed) {
+                        matches = true;
+                        matchDetails = "page source (substring not in allowlist)";
+                      }
+                    }
+                  } else if (indicator.code_logic.type === "substring_or_regex") {
+                    // Try fast substring search first, fall back to regex
+                    const substrings = indicator.code_logic.substrings || [];
+                    const lowerSource = pageSource.toLowerCase();
+                    
+                    // Fast path: check if any substring is present
+                    for (const sub of substrings) {
+                      if (lowerSource.includes(sub.toLowerCase())) {
+                        matches = true;
+                        matchDetails = "page source (substring match)";
+                        break;
+                      }
+                    }
+                    
+                    // Fallback: use regex if no substring matched
+                    if (!matches && indicator.code_logic.regex) {
+                      const pattern = new RegExp(indicator.code_logic.regex, indicator.code_logic.flags || "i");
+                      if (pattern.test(pageSource)) {
+                        matches = true;
+                        matchDetails = "page source (regex match)";
                       }
                     }
                   }
