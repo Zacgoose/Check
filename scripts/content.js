@@ -2779,6 +2779,14 @@ if (window.checkExtensionLoaded) {
       return;
     }
 
+    // Early exit if a banner is already displayed and this is a re-run
+    if (isRerun && showingBanner) {
+      logger.log(
+        `🛑 runProtection() called but banner already displayed - ignoring re-scan`
+      );
+      return;
+    }
+
     try {
       logger.log(
         `🚀 Starting protection analysis ${
