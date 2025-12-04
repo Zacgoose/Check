@@ -179,9 +179,22 @@ if (window.checkExtensionLoaded) {
 
   /**
    * Check if page source has changed significantly
+   * Uses cached page source when available to avoid repeated DOM access
    */
   function hasPageSourceChanged() {
-    const currentSource = document.documentElement.outerHTML; // Direct access to bypass cache
+    // Use cached source if available and fresh
+    const now = Date.now();
+    let currentSource;
+    
+    if (cachedPageSource && (now - cachedPageSourceTime <= PAGE_SOURCE_CACHE_TTL)) {
+      currentSource = cachedPageSource;
+    } else {
+      currentSource = document.documentElement.outerHTML;
+      // Update cache for subsequent calls
+      cachedPageSource = currentSource;
+      cachedPageSourceTime = now;
+    }
+    
     const currentHash = computePageSourceHash(currentSource);
     
     if (!lastPageSourceHash) {
@@ -193,6 +206,9 @@ if (window.checkExtensionLoaded) {
     if (changed) {
       logger.debug(`Page source changed: ${lastPageSourceHash} -> ${currentHash}`);
       lastPageSourceHash = currentHash;
+      // Invalidate cache when page changes to ensure fresh content on next getPageSource call
+      cachedPageSource = currentSource;
+      cachedPageSourceTime = now;
     }
     
     return changed;
@@ -1412,38 +1428,6 @@ if (window.checkExtensionLoaded) {
       if (missingElementsList.length > 0) {
         logger.log(`Missing elements: [${missingElementsList.join(", ")}]`);
       }
-
-      // Enhanced debugging - show what we're actually looking for
-      logger.debug("=== DETECTION DEBUG INFO ===");
-      logger.debug(`Page URL: ${window.location.href}`);
-      logger.debug(`Page title: ${document.title}`);
-      logger.debug(`Page source length: ${pageSource.length} chars`);
-
-      // Debug each pattern individually
-      for (const element of allElements) {
-        if (element.type === "source_content") {
-          const regex = new RegExp(element.pattern, "i");
-          const matches = pageSource.match(regex);
-          logger.debug(
-            `${element.category} pattern "${element.pattern}" -> ${
-              matches ? "FOUND" : "NOT FOUND"
-            }`
-          );
-          if (matches) logger.debug(`  Match: "${matches[0]}"`);
-        } else if (element.type === "css_pattern") {
-          element.patterns.forEach((pattern, idx) => {
-            const regex = new RegExp(pattern, "i");
-            const matches = pageSource.match(regex);
-            logger.debug(
-              `${element.category} CSS pattern[${idx}] "${pattern}" -> ${
-                matches ? "FOUND" : "NOT FOUND"
-              }`
-            );
-            if (matches) logger.debug(`  Match: "${matches[0]}"`);
-          });
-        }
-      }
-      logger.debug("=== END DEBUG INFO ===");
 
       const resultMessage = isM365Page
         ? "✅ DETECTED as Microsoft 365 logon page"
