@@ -560,6 +560,39 @@ class CheckBackground {
     }
   }
 
+  // Send event to webhook (wrapper for webhookManager.sendWebhook)
+  async sendEvent(eventData) {
+    try {
+      // Map event types to webhook types
+      const eventTypeMap = {
+        "trusted-login-page": this.webhookManager.webhookTypes.VALIDATION_EVENT,
+        "phishy-detected": this.webhookManager.webhookTypes.THREAT_DETECTED,
+        "page-blocked": this.webhookManager.webhookTypes.PAGE_BLOCKED,
+        "rogue-app-detected": this.webhookManager.webhookTypes.ROGUE_APP,
+        "detection-alert": this.webhookManager.webhookTypes.DETECTION_ALERT,
+      };
+
+      const webhookType = eventTypeMap[eventData.type];
+      if (!webhookType) {
+        logger.warn(`Unknown event type: ${eventData.type}`);
+        return;
+      }
+
+      // Get metadata
+      const metadata = {
+        timestamp: new Date().toISOString(),
+        extensionVersion: chrome.runtime.getManifest().version,
+        ...eventData.metadata,
+      };
+
+      // Send webhook
+      await this.webhookManager.sendWebhook(webhookType, eventData, metadata);
+    } catch (error) {
+      // Log error but don't throw - webhook failures shouldn't break functionality
+      logger.error(`Failed to send event ${eventData.type}:`, error);
+    }
+  }
+
   // CyberDrain integration - Remove valid badges from all tabs when setting is disabled
   async removeValidBadgesFromAllTabs() {
     try {

@@ -5368,7 +5368,7 @@ if (window.checkExtensionLoaded) {
   /**
    * Message listener for popup communication
    */
-  chrome.runtime.onMessage.addListener((message, sendResponse) => {
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === "SHOW_VALID_BADGE") {
       try {
         logger.log("📋 VALID BADGE: Received request to show valid page badge");
