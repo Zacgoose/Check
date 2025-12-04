@@ -2761,11 +2761,23 @@ if (window.checkExtensionLoaded) {
           isRerun ? "(re-run)" : "(initial)"
         } for ${window.location.href}`
       );
-      logger.log(
-        `📄 Page info: ${document.querySelectorAll("*").length} elements, ${
-          document.body?.textContent?.length || 0
-        } chars content`
-      );
+      let cleanedSourceLength = null;
+      if (typeof arguments[1] === "object" && arguments[1]?.scanCleaned) {
+        // If scanCleaned is true, get cleaned page source length
+        const cleanedSource = typeof getPageSource === "function" ? getPageSource(true) : null;
+        cleanedSourceLength = cleanedSource ? cleanedSource.length : null;
+        logger.log(
+          `📄 Page info: ${document.querySelectorAll("*").length} elements, ${
+            document.body?.textContent?.length || 0
+          } chars content | Cleaned page source: ${cleanedSourceLength || "N/A"} chars`
+        );
+      } else {
+        logger.log(
+          `📄 Page info: ${document.querySelectorAll("*").length} elements, ${
+            document.body?.textContent?.length || 0
+          } chars content`
+        );
+      }
 
       if (isInIframe()) {
         logger.log("⚠️ Page is in an iframe");
@@ -4290,6 +4302,7 @@ if (window.checkExtensionLoaded) {
   /**
    * Set up DOM monitoring to catch delayed phishing content
    */
+  let domScanTimeout = null; // Debounce timer for DOM-triggered scans
   function setupDOMMonitoring() {
     try {
       // Don't set up multiple observers
@@ -4306,7 +4319,7 @@ if (window.checkExtensionLoaded) {
         `Body content length: ${document.body?.textContent?.length || 0} chars`
       );
 
-      domObserver = new MutationObserver(async (mutations) => {
+  domObserver = new MutationObserver(async (mutations) => {
         try {
           let shouldRerun = false;
           let newElementsAdded = false;
@@ -4428,19 +4441,31 @@ if (window.checkExtensionLoaded) {
             }
 
             logger.log(
-              "🔄 Significant DOM changes detected - re-running protection analysis"
+              "🔄 Significant DOM changes detected - scheduling protection analysis (debounced)"
             );
             logger.log(
               `Page now has ${document.querySelectorAll("*").length} elements`
             );
-            // Enhanced debounce delay from 500ms to 1000ms for performance
-            setTimeout(() => {
+            // Debounce: clear any pending scan and schedule a new one
+            if (domScanTimeout) {
+              clearTimeout(domScanTimeout);
+            }
+            domScanTimeout = setTimeout(() => {
               runProtection(true);
+              domScanTimeout = null;
             }, 1000);
           } else if (showingBanner) {
             logger.debug(
-              "🚫 Ignoring DOM changes while banner is being displayed"
+              "🔍 DOM changes detected while banner is displayed - scanning cleaned page source (debounced)"
             );
+            // Debounce: clear any pending scan and schedule a new one
+            if (domScanTimeout) {
+              clearTimeout(domScanTimeout);
+            }
+            domScanTimeout = setTimeout(() => {
+              runProtection(true, { scanCleaned: true });
+              domScanTimeout = null;
+            }, 1000);
           } else if (newElementsAdded) {
             logger.debug(
               "🔍 DOM changes detected but not significant enough to re-run analysis"
@@ -4462,8 +4487,11 @@ if (window.checkExtensionLoaded) {
       const checkInterval = setInterval(() => {
         if (showingBanner) {
           logger.debug(
-            "🚫 Fallback timer skipping check while banner is displayed"
+            "🔍 Fallback timer scanning cleaned page source while banner is displayed"
           );
+          // Scan cleaned page source (banner and injected elements removed)
+          runProtection(true, { scanCleaned: true });
+          clearInterval(checkInterval);
           return;
         }
 
@@ -4483,6 +4511,11 @@ if (window.checkExtensionLoaded) {
       setTimeout(() => {
         clearInterval(checkInterval);
         stopDOMMonitoring();
+        // Also clear any pending DOM scan debounce
+        if (domScanTimeout) {
+          clearTimeout(domScanTimeout);
+          domScanTimeout = null;
+        }
         logger.log("🛑 DOM monitoring timeout reached - stopping");
       }, 30000);
     } catch (error) {
