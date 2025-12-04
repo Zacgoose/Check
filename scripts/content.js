@@ -48,6 +48,7 @@ if (window.checkExtensionLoaded) {
   let cachedPageSourceTime = 0;
   const PAGE_SOURCE_CACHE_TTL = 1000;
   let capturedLogs = []; // Console log capturing
+  let backgroundProcessingActive = false; // Prevent multiple background processing cycles
   const MAX_LOGS = 100; // Limit the number of stored logs
 
   // Override console methods to capture logs
@@ -2393,12 +2394,21 @@ if (window.checkExtensionLoaded) {
                 // Resolve immediately with current results for display
                 resolve({ threats, score: totalScore });
                 
+                // Prevent multiple background processing cycles
+                if (backgroundProcessingActive) {
+                  logger.log(`🔄 Background processing already active, skipping`);
+                  return;
+                }
+                backgroundProcessingActive = true;
+                
                 // Continue processing remaining indicators in background
                 const remainingIndicators = detectionRules.phishing_indicators.slice(processedCount);
                 logger.log(`🔄 Continuing to process ${remainingIndicators.length} remaining indicators in background`);
                 
                 // Process remaining indicators asynchronously
                 setTimeout(async () => {
+                  let backgroundThreatsFound = false;
+                  
                   for (const indicator of remainingIndicators) {
                     try {
                       const indicatorStart = performance.now();
@@ -2434,6 +2444,12 @@ if (window.checkExtensionLoaded) {
                               matches = indicator.code_logic.match_any.some(phrase => 
                                 lowerSource.includes(phrase.toLowerCase())
                               );
+                            } else if (indicator.code_logic.match_pattern_parts) {
+                              // Handle pattern parts - all groups must match
+                              const parts = indicator.code_logic.match_pattern_parts;
+                              matches = parts.every(partGroup => 
+                                partGroup.some(part => lowerSource.includes(part.toLowerCase()))
+                              );
                             }
                           }
                         }
@@ -2447,12 +2463,14 @@ if (window.checkExtensionLoaded) {
                       
                       if (matches) {
                         logger.log(`🔄 Background processing found threat: ${indicator.id}`);
+                        backgroundThreatsFound = true;
+                        
                         // Check if we need to escalate to block mode
                         if (indicator.severity === 'critical' || indicator.action === 'block') {
                           logger.warn(`⚠️ Critical threat detected in background processing: ${indicator.id}`);
-                          logger.warn(`🔄 Re-triggering page scan to apply block action`);
-                          // Trigger a re-scan to apply the block
-                          await performPhishingDetection(true);
+                          // Don't trigger re-scan immediately, just log it
+                          // The threat will be picked up on next regular scan or page interaction
+                          logger.warn(`💡 Critical threat logged - will be applied on next scan`);
                         }
                       }
                       
@@ -2462,7 +2480,15 @@ if (window.checkExtensionLoaded) {
                       logger.warn(`Error in background processing of ${indicator.id}:`, error.message);
                     }
                   }
-                  logger.log(`✅ Background processing completed`);
+                  
+                  backgroundProcessingActive = false;
+                  logger.log(`✅ Background processing completed. Threats found: ${backgroundThreatsFound}`);
+                  
+                  // If critical threats were found in background and we're not already showing a block page
+                  // schedule a re-scan for next user interaction
+                  if (backgroundThreatsFound && !escalatedToBlock) {
+                    logger.log(`📋 Critical threats found in background - will re-scan on next page change`);
+                  }
                 }, 100);
                 
                 return;
