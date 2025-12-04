@@ -35,7 +35,6 @@ if (window.checkExtensionLoaded) {
   const THREAT_TRIGGERED_COOLDOWN = 500; // Shorter cooldown for threat-triggered re-scans
   const WARNING_THRESHOLD = 3; // Block if 4+ warning threats found (escalation threshold)
   const PHISHING_PROCESSING_TIMEOUT = 10000; // 10 second timeout for phishing indicator processing
-  let disablePhishingProcessingTimeout = false; // Toggle for debugging
   let forceMainThreadPhishingProcessing = false; // Toggle for debugging main thread only
   const SLOW_PAGE_RESCAN_SKIP_THRESHOLD = 5000; // Don't re-scan if initial scan took > 5s
   let lastProcessingTime = 0; // Track last phishing indicator processing time
@@ -124,17 +123,6 @@ if (window.checkExtensionLoaded) {
       }
     });
   }
-
-  /**
-   * Enable or disable the phishing processing timeout for debugging
-   * Call from console: setDisablePhishingProcessingTimeout(true/false)
-   */
-  window.setDisablePhishingProcessingTimeout = function (disable) {
-    disablePhishingProcessingTimeout = !!disable;
-    console.log(
-      `[M365-Protection] Phishing processing timeout is now ${disablePhishingProcessingTimeout ? 'DISABLED' : 'ENABLED'}`
-    );
-  };
 
   function isInIframe() {
     try {
@@ -1999,7 +1987,7 @@ if (window.checkExtensionLoaded) {
         // Try Web Worker for background processing first with timeout protection
         logger.log(`⏱️ PERF: Attempting background processing with Web Worker`);
         try {
-          const timeoutMs = disablePhishingProcessingTimeout ? null : PHISHING_PROCESSING_TIMEOUT;
+          const timeoutMs = PHISHING_PROCESSING_TIMEOUT;
           const backgroundPromise = processPhishingIndicatorsInBackground(
             detectionRules.phishing_indicators,
             pageSource,
@@ -2323,7 +2311,7 @@ if (window.checkExtensionLoaded) {
             if (processedCount < detectionRules.phishing_indicators.length) {
               // Check timeout for main thread processing
               const mainThreadElapsed = Date.now() - mainThreadStartTime;
-              if (!disablePhishingProcessingTimeout && mainThreadElapsed > PHISHING_PROCESSING_TIMEOUT) {
+              if (mainThreadElapsed > PHISHING_PROCESSING_TIMEOUT) {
                 const totalTime = Date.now() - startTime;
                 lastProcessingTime = totalTime; // CRITICAL: Track time on timeout
                 
