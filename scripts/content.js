@@ -34,7 +34,7 @@ if (window.checkExtensionLoaded) {
   const SCAN_COOLDOWN = 1200; // 1200ms between scans - increased for performance
   const THREAT_TRIGGERED_COOLDOWN = 500; // Shorter cooldown for threat-triggered re-scans
   const WARNING_THRESHOLD = 3; // Block if 4+ warning threats found (escalation threshold)
-  const PHISHING_PROCESSING_TIMEOUT = 1200000; // 10 second timeout for phishing indicator processing
+  const PHISHING_PROCESSING_TIMEOUT = 10000; // 10 second timeout for phishing indicator processing
   let disablePhishingProcessingTimeout = false; // Toggle for debugging
   let forceMainThreadPhishingProcessing = false; // Toggle for debugging main thread only
   const SLOW_PAGE_RESCAN_SKIP_THRESHOLD = 5000; // Don't re-scan if initial scan took > 5s
