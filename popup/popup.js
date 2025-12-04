@@ -1860,8 +1860,8 @@ class CheckPopup {
                 "Retrieved stored debug data via background script for URL:",
                 url
               );
-              console.log("Returning debug data:", data);
-              return data; // Return the full data object since it IS the debug data
+              console.log("Returning debug data:", data.debugData);
+              return data.debugData; // Return the nested debugData object
             } else {
               console.log("Data too old or no timestamp, cleaning up");
               // Clean up old data
