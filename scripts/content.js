@@ -4330,6 +4330,12 @@ if (window.checkExtensionLoaded) {
               // Check for added forms, inputs, or scripts
               for (const node of mutation.addedNodes) {
                 if (node.nodeType === Node.ELEMENT_NODE) {
+                  // Skip extension-injected elements (banner, badges, overlays, etc.)
+                  if (injectedElements.has(node)) {
+                    logger.debug(`Skipping extension-injected element: ${node.tagName?.toLowerCase()} (ID: ${node.id})`);
+                    continue;
+                  }
+                  
                   newElementsAdded = true;
                   const tagName = node.tagName?.toLowerCase();
 
