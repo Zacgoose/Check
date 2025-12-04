@@ -2771,6 +2771,14 @@ if (window.checkExtensionLoaded) {
    * Main protection logic following CORRECTED specification
    */
   async function runProtection(isRerun = false) {
+    // Early exit if page has been escalated to block
+    if (escalatedToBlock) {
+      logger.log(
+        `🛑 runProtection() called but page already escalated to block - ignoring`
+      );
+      return;
+    }
+
     try {
       logger.log(
         `🚀 Starting protection analysis ${
