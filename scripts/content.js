@@ -2309,7 +2309,7 @@ if (window.checkExtensionLoaded) {
                   // 1. Any blocking threat found (action='block')
                   // 2. Any critical severity threat found (instant block)
                   // 3. Multiple high/critical severity threats exceed escalation threshold
-                  if (blockThreats > 0 || criticalThreats > 0 || highSeverityThreats >= WARNING_THRESHOLD) {
+                  if (highSeverityThreats >= WARNING_THRESHOLD) {
                     const totalTime = Date.now() - startTime;
                     lastProcessingTime = totalTime;
                     

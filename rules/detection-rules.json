@@ -453,6 +453,19 @@
       "confidence": 0.9
     },
     {
+      "id": "phi_031_suspicious_query_length_combined",
+      "code_driven": true,
+      "code_logic": {
+        "description": "Trigger if a suspiciously long query parameter is present AND the page contains Microsoft branding keywords AND there is a password field or form submission.",
+        "logic": "if (url.match(/[?&][a-zA-Z0-9_\\-]{1,32}=([a-zA-Z0-9_\\-]{30,})/i) && (pageText.match(/microsoft|office|365/i)) && (document.querySelector('input[type=\\\\'password\\\\']') || document.querySelector('form'))) { return true; } return false;"
+      },
+      "severity": "medium",
+      "description": "Suspiciously long query parameter value in URL, Microsoft branding, and password field or form present (possible phishing)",
+      "action": "warn",
+      "category": "url_structure",
+      "confidence": 0.7
+    },
+    {
       "id": "phi_004",
       "pattern": "(?:urgent.{0,500}(action|update|verify)|immediate.{0,500}(action|attention)|act.{0,500}(now|immediately)).{0,500}(microsoft|office|365)",
       "flags": "i",
@@ -690,7 +703,7 @@
     },
     {
       "id": "phi_021_suspicious_url_structure",
-      "pattern": "(?<=://[^/]+)(?:/[^\\s/?#]{20,}(?:/[^\\s/?#]{8,})*(?=/|\\?|#|$)|/[^\\s/?#]{40,}(?=/|\\?|#|$))",
+      "pattern": "(?<=://[^/]+)(?:/[a-zA-Z0-9]{20,}(?:/[a-zA-Z0-9]{8,})*(?=/|\\?|#|$)|/[a-zA-Z0-9_-]{40,}(?=/|\\?|#|$))",
       "flags": "i",
       "severity": "medium",
       "description": "Suspicious URL structure with long random strings in path segments (before query parameters)",
