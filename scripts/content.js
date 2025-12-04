@@ -29,6 +29,7 @@ if (window.checkExtensionLoaded) {
   let lastPageSourceScanTime = 0; // When the page source was captured
   let developerConsoleLoggingEnabled = false; // Cache for developer console logging setting
   let showingBanner = false; // Flag to prevent DOM monitoring loops when showing banners
+  let escalatedToBlock = false; // Flag to indicate page has been escalated to block - stop all monitoring
   const MAX_SCANS = 5; // Prevent infinite scanning - reduced for performance
   const SCAN_COOLDOWN = 1200; // 1200ms between scans - increased for performance
   const THREAT_TRIGGERED_COOLDOWN = 500; // Shorter cooldown for threat-triggered re-scans
@@ -4336,6 +4337,12 @@ if (window.checkExtensionLoaded) {
 
   domObserver = new MutationObserver(async (mutations) => {
         try {
+          // Immediately exit if page has been escalated to block
+          if (escalatedToBlock) {
+            logger.debug("🛑 Page escalated to block - ignoring DOM mutations");
+            return;
+          }
+          
           let shouldRerun = false;
           let newElementsAdded = false;
 
@@ -4452,7 +4459,7 @@ if (window.checkExtensionLoaded) {
             if (shouldRerun) break;
           }
 
-          if (shouldRerun && !showingBanner) {
+          if (shouldRerun && !showingBanner && !escalatedToBlock) {
             // Check scan rate limiting
             if (scanCount >= MAX_SCANS) {
               logger.log(
@@ -4475,7 +4482,9 @@ if (window.checkExtensionLoaded) {
               runProtection(true);
               domScanTimeout = null;
             }, 1000);
-          } else if (showingBanner) {
+          } else if (escalatedToBlock) {
+            logger.debug("🛑 Page escalated to block - ignoring DOM changes during debounce check");
+          } else if (showingBanner && !escalatedToBlock) {
             logger.debug(
               "🔍 DOM changes detected while banner is displayed - scanning cleaned page source (debounced)"
             );
@@ -4506,6 +4515,13 @@ if (window.checkExtensionLoaded) {
 
       // Fallback: Check periodically for content that might have loaded without triggering observer
       const checkInterval = setInterval(() => {
+        // Stop if page has been escalated to block
+        if (escalatedToBlock) {
+          logger.debug("🛑 Page escalated to block - stopping fallback timer");
+          clearInterval(checkInterval);
+          return;
+        }
+        
         if (showingBanner) {
           logger.debug(
             "🔍 Fallback timer scanning cleaned page source while banner is displayed"
@@ -4571,6 +4587,9 @@ if (window.checkExtensionLoaded) {
    */
   function showBlockingOverlay(reason, analysisData) {
     try {
+      // CRITICAL: Set escalated to block flag FIRST to prevent any further scans
+      escalatedToBlock = true;
+      
       // CRITICAL: Immediately stop all monitoring and processing to save resources
       // The page is being blocked, so no further analysis is needed
       stopDOMMonitoring();
