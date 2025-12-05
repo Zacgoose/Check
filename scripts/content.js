@@ -958,7 +958,6 @@ if (window.checkExtensionLoaded) {
         },
         consoleLogs: capturedLogs.slice(), // Copy the captured logs
         pageSource: lastScannedPageSource || document.documentElement.outerHTML,
-        timestamp: Date.now(),
       };
 
       console.log(
@@ -966,9 +965,16 @@ if (window.checkExtensionLoaded) {
       );
 
       // Store in chrome storage with URL-based key
+      // Wrap in same structure as popup expects
       const storageKey = `debug_data_${btoa(originalUrl).substring(0, 50)}`;
+      const dataToStore = {
+        url: originalUrl,
+        timestamp: Date.now(),
+        debugData: debugData,
+      };
+      
       await new Promise((resolve, reject) => {
-        chrome.storage.local.set({ [storageKey]: debugData }, () => {
+        chrome.storage.local.set({ [storageKey]: dataToStore }, () => {
           if (chrome.runtime.lastError) {
             reject(chrome.runtime.lastError);
           } else {
