@@ -207,7 +207,7 @@
         "type": "source_content",
         "pattern": "Segoe\\s+UI(?:\\s+(?:Webfont|Symbol|Historic|Emoji))?",
         "description": "Microsoft's Segoe UI font family variants (supporting evidence only)",
-        "weight": 1,
+        "weight": 0.5,
         "category": "secondary"
       },
       {
@@ -234,7 +234,7 @@
         "type": "source_content",
         "pattern": "<input[^>]*(?:type=[\"']password[\"']|name=[\"']password[\"']|id=[\"'][^\"']*password[^\"']*[\"'])[^>]*>",
         "description": "Password input field present on page (supporting evidence only)",
-        "weight": 0.5,
+        "weight": 1,
         "category": "secondary"
       },
       {
@@ -242,7 +242,7 @@
         "type": "source_content",
         "pattern": "<input[^>]*type=[\"'](?:email|text|tel)[\"'][^>]*(?:placeholder=[\"'][^\"']+[\"'][^>]*|[^>]*)>",
         "description": "Login form input field (email/text/tel type) with placeholder attribute",
-        "weight": 0.5,
+        "weight": 1,
         "category": "secondary"
       }
     ],
