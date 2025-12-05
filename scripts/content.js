@@ -1119,7 +1119,8 @@ if (window.checkExtensionLoaded) {
     console.log("Is Trusted Domain:", isTrusted);
 
     // Check M365 detection
-    const isMSLogon = isMicrosoftLogonPage();
+    const msDetection = detectMicrosoftElements();
+    const isMSLogon = msDetection.isLogonPage;
     console.log("Detected as M365 Login:", isMSLogon);
 
     // Run phishing indicators
@@ -1208,7 +1209,6 @@ if (window.checkExtensionLoaded) {
   /**
    * Unified Microsoft element detection with rich results
    * Optimization: Single scan that calculates both logon page and element presence
-   * Replaces separate calls to isMicrosoftLogonPage() and hasMicrosoftElements()
    * @returns {Object} Detection results: { isLogonPage, hasElements, primaryFound, totalWeight, totalElements, foundElements }
    */
   function detectMicrosoftElements() {
@@ -1476,26 +1476,6 @@ if (window.checkExtensionLoaded) {
         pageSource: null
       };
     }
-  }
-
-  /**
-   * Check if page has ANY Microsoft-related elements (lower threshold than full detection)
-   * Used to determine if phishing indicators should be checked
-   * Note: This function now uses detectMicrosoftElements() internally for optimization
-   */
-  function hasMicrosoftElements() {
-    const detection = detectMicrosoftElements();
-    return detection.hasElements;
-  }
-
-  /**
-   * Check if page is Microsoft 365 logon page using categorized detection
-   * Requirements: Primary elements are Microsoft-specific, secondary are supporting evidence
-   * Note: This function now uses detectMicrosoftElements() internally for optimization
-   */
-  function isMicrosoftLogonPage() {
-    const detection = detectMicrosoftElements();
-    return detection.isLogonPage;
   }
 
   /**
@@ -3675,12 +3655,10 @@ if (window.checkExtensionLoaded) {
       );
 
       // Step 5: Check if page is an MS logon page (using rule file requirements)
-      const isMSLogon = isMicrosoftLogonPage();
-      if (!isMSLogon) {
+      const msDetection = detectMicrosoftElements();
+      if (!msDetection.isLogonPage) {
         // Check if page has ANY Microsoft-related elements before running expensive phishing indicators
-        const hasMSElements = hasMicrosoftElements();
-
-        if (!hasMSElements) {
+        if (!msDetection.hasElements) {
           logger.log(
             "✅ Page analysis result: Site appears legitimate (not Microsoft-related, no phishing indicators checked)"
           );
