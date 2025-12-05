@@ -337,7 +337,7 @@ This rule triggers when:
 **Use Code-Driven When:**
 - You need to check multiple conditions (AND/OR logic)
 - Word proximity matters
-- You want to exclude certain contexts (allowlists)
+- You want to exclude certain contexts (allowlist patterns)
 - Performance is important (substring checks are faster than complex regex)
 - Rules are easier to maintain and understand
 
