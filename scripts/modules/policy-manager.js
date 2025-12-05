@@ -1,6 +1,7 @@
 /**
  * Policy Manager for Check
  * Handles enterprise policies, permissions, and compliance enforcement
+ * Supports both Chrome (managed storage) and Firefox (3rdparty policies)
  */
 
 import { chrome, storage } from "../browser-polyfill.js";
@@ -61,6 +62,15 @@ export class PolicyManager {
         try { return await promise; } catch(_) { return {}; }
       };
       
+      // Firefox uses 3rdparty extension policies instead of managed storage
+      if (this.isFirefox) {
+        logger.log("Check: Firefox detected, policies loaded via 3rdparty extension settings (handled by ConfigManager)");
+        // Firefox policies are loaded through the extension's configuration system
+        // which reads from browser.storage.managed automatically
+        return {};
+      }
+      
+      // Chrome/Edge: Load from managed storage
       const managedPolicies = await safe(storage.managed.get(["policies"]));
       return managedPolicies?.policies || {};
     } catch (error) {
@@ -507,6 +517,7 @@ export class PolicyManager {
     const report = {
       timestamp: new Date().toISOString(),
       version: chrome.runtime.getManifest().version,
+      browser: this.isFirefox ? 'Firefox' : 'Chrome/Edge',
       policies: this.policies,
       enforcedPolicies: this.policies?.enforcedPolicies || {},
       violations: this.getComplianceViolations(),

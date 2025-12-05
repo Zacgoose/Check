@@ -1887,8 +1887,6 @@ class CheckBackground {
   }
 
   // Test methods removed - DetectionEngine functionality moved to content script
-
-  // Test methods removed - DetectionEngine functionality moved to content script
   async runComprehensiveTest() {
     return {
       timestamp: new Date().toISOString(),

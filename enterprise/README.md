@@ -1,6 +1,7 @@
 # Check Extension - Enterprise Deployment
 
 This folder contains enterprise deployment resources for the Check Microsoft 365 Phishing Protection extension.
+Firefox currently only has support for management via the `policies.json` file
 
 ## Contents
 
@@ -12,6 +13,8 @@ This folder contains enterprise deployment resources for the Check Microsoft 365
    - Configuration Profiles for macOS
    - Browser policy files for Linux
    - Universal deployment scripts
+- `firefox/` - Specific to firefox deployments
+   - `policies.json` - Currently only supported method to managing the extension
 - `Check-Extension-Policy.reg` - Windows registry file for direct policy application
 - `Deploy-ADMX.ps1` - PowerShell script for Windows ADMX deployment
 - `Deply-Windows-Chrome-and-Edge.ps1` PowerShell script for manual Windows deployment also used for RMM deployment
