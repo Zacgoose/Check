@@ -513,7 +513,7 @@ if (window.checkExtensionLoaded) {
       const rulesExcluded =
         detectionRules.exclusion_system.domain_patterns.some((pattern) => {
           try {
-            const regex = new RegExp(pattern, "i");
+            const regex = getCachedRegex(pattern, "i");
             return regex.test(origin);
           } catch (error) {
             logger.warn(`Invalid exclusion pattern: ${pattern}`);
@@ -522,6 +522,7 @@ if (window.checkExtensionLoaded) {
         });
 
       if (rulesExcluded) {
+        logger.log(`✅ URL excluded by detection rules: ${origin}`);
         return true;
       }
     }
@@ -2852,26 +2853,14 @@ if (window.checkExtensionLoaded) {
    * Now includes both detection rules exclusions AND user-configured URL allowlist
    */
   function checkDomainExclusion(url) {
-    const urlObj = new URL(url);
-    const origin = urlObj.origin;
-    if (detectionRules?.exclusion_system?.domain_patterns) {
-      const rulesExcluded =
-        detectionRules.exclusion_system.domain_patterns.some((pattern) => {
-          try {
-            const regex = new RegExp(pattern, "i");
-            return regex.test(origin);
-          } catch (error) {
-            logger.warn(`Invalid exclusion pattern: ${pattern}`);
-            return false;
-          }
-        });
-
-      if (rulesExcluded) {
-        logger.log(`✅ URL excluded by detection rules: ${origin}`);
-        return true;
-      }
+    try {
+      const urlObj = new URL(url);
+      const origin = urlObj.origin;
+      return checkDomainExclusionByOrigin(origin);
+    } catch (error) {
+      logger.warn("Invalid URL for domain exclusion check:", url);
+      return false;
     }
-    return checkUserUrlAllowlist(origin);
   }
 
   /**
