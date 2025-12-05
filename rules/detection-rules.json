@@ -140,7 +140,7 @@
           "office.*sign\\s*in"
         ],
         "description": "Page title contains Microsoft branding with sign-in/login keywords",
-        "weight": 1,
+        "weight": 2,
         "category": "secondary"
       },
       {
@@ -175,7 +175,7 @@
         "type": "source_content",
         "pattern": "<link[^>]+rel=[\"'](?:icon|shortcut icon|apple-touch-icon)[\"'][^>]+href=[\"'][^\"']*(?:microsoft|msft|m365\\.ico|office)[^\"']*[\"'][^>]*>",
         "description": "Favicon references Microsoft branding",
-        "weight": 0.5,
+        "weight": 1,
         "category": "secondary"
       },
       {
@@ -207,7 +207,7 @@
         "type": "source_content",
         "pattern": "Segoe\\s+UI(?:\\s+(?:Webfont|Symbol|Historic|Emoji))?",
         "description": "Microsoft's Segoe UI font family variants (supporting evidence only)",
-        "weight": 0.5,
+        "weight": 1,
         "category": "secondary"
       },
       {

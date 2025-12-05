@@ -1164,7 +1164,7 @@ if (window.checkExtensionLoaded) {
         logger.log(
           `✅ Domain excluded from scanning - skipping Microsoft elements check: ${window.location.href}`
         );
-        return false; // Skip phishing indicators for excluded domains
+        return false;
       }
 
       if (!detectionRules?.m365_detection_requirements) {
@@ -1175,19 +1175,19 @@ if (window.checkExtensionLoaded) {
       const pageSource = getPageSource();
       const pageText = document.body?.textContent || "";
       
-      // Get page title and meta tags
       const pageTitle = document.title || "";
       const metaTags = Array.from(document.querySelectorAll('meta'));
 
-      // Lower threshold - just need ANY Microsoft-related elements
       let totalWeight = 0;
       let totalElements = 0;
+      const foundPrimaryElements = []; // Track primary elements in main loop
 
       const allElements = [
         ...(requirements.primary_elements || []),
         ...(requirements.secondary_elements || []),
       ];
 
+      // Single loop - check all elements once
       for (const element of allElements) {
         try {
           let found = false;
@@ -1196,13 +1196,11 @@ if (window.checkExtensionLoaded) {
             const regex = new RegExp(element.pattern, "i");
             found = regex.test(pageSource);
           } else if (element.type === "page_title") {
-            // Check page title
             found = element.patterns.some((pattern) => {
               const regex = new RegExp(pattern, "i");
               return regex.test(pageTitle);
             });
           } else if (element.type === "meta_tag") {
-            // Check meta tags
             const metaAttr = element.attribute;
             
             found = metaTags.some(meta => {
@@ -1250,41 +1248,14 @@ if (window.checkExtensionLoaded) {
           if (found) {
             totalWeight += element.weight || 1;
             totalElements++;
+            
+            // Track primary elements
+            if (element.category === "primary") {
+              foundPrimaryElements.push(element.id);
+            }
           }
         } catch (error) {
           logger.warn(`Error checking element ${element.category}:`, error);
-        }
-      }
-
-      // Tightened threshold - require either:
-      // 1. At least one primary element (Microsoft-specific), OR
-      // 2. High weight secondary elements (weight >= 4), OR
-      // 3. Multiple secondary elements (3+) with decent weight (>= 3)
-      const primaryElements = allElements.filter(
-        (el) => el.category === "primary"
-      );
-      const foundPrimaryElements = [];
-
-      // Check if any primary elements were found
-      for (const element of primaryElements) {
-        try {
-          let found = false;
-
-          if (element.type === "source_content") {
-            const regex = new RegExp(element.pattern, "i");
-            found = regex.test(pageSource);
-          } else if (element.type === "css_pattern") {
-            found = element.patterns.some((pattern) => {
-              const regex = new RegExp(pattern, "i");
-              return regex.test(pageSource);
-            });
-          }
-
-          if (found) {
-            foundPrimaryElements.push(element.id);
-          }
-        } catch (error) {
-          // Skip invalid patterns
         }
       }
 
@@ -1314,7 +1285,7 @@ if (window.checkExtensionLoaded) {
       return hasElements;
     } catch (error) {
       logger.error("Error in hasMicrosoftElements:", error.message);
-      return true; // Default to checking on error to be safe
+      return true;
     }
   }
 
