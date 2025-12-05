@@ -252,6 +252,13 @@ class CheckPopup {
         this.elements.debugSection.style.display = "block";
         this.elements.pageSourceSection.style.display = "block";
         this.elements.consoleLogsSection.style.display = "block";
+        
+        // Hide the "Re-run Analysis" button when on a blocked page
+        if (this.isBlockedRoute) {
+          this.elements.retriggerAnalysis.style.display = "none";
+        } else {
+          this.elements.retriggerAnalysis.style.display = "inline-flex";
+        }
       } else {
         this.elements.debugSection.style.display = "none";
         this.elements.pageSourceSection.style.display = "none";

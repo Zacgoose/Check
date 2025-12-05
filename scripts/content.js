@@ -3719,7 +3719,7 @@ if (window.checkExtensionLoaded) {
               logger.error(
                 "🛡️ PROTECTION ACTIVE: Blocking page due to critical phishing indicators"
               );
-              showBlockingOverlay(reason, {
+              await showBlockingOverlay(reason, {
                 threats: criticalThreats,
                 score: phishingResult.score,
               });
@@ -3821,7 +3821,7 @@ if (window.checkExtensionLoaded) {
                 logger.error(
                   "🛡️ PROTECTION ACTIVE: Blocking page due to escalated warning threats"
                 );
-                showBlockingOverlay(reason, {
+                await showBlockingOverlay(reason, {
                   threats: warningThreats,
                   score: phishingResult.score,
                   escalated: true,
@@ -4142,7 +4142,7 @@ if (window.checkExtensionLoaded) {
             logger.warn("Failed to send page_blocked webhook:", err.message);
           });
           
-          showBlockingOverlay(blockingResult.reason, blockingResult);
+          await showBlockingOverlay(blockingResult.reason, blockingResult);
           disableFormSubmissions();
           disableCredentialInputs();
           stopDOMMonitoring();
@@ -4258,7 +4258,7 @@ if (window.checkExtensionLoaded) {
             logger.warn("Failed to send page_blocked webhook:", err.message);
           });
           
-          showBlockingOverlay(reason, {
+          await showBlockingOverlay(reason, {
             threats: criticalBlockingRules.map((rule) => ({
               description: rule.description,
               severity: "critical",
@@ -4401,7 +4401,7 @@ if (window.checkExtensionLoaded) {
             logger.warn("Failed to send page_blocked webhook:", err.message);
           });
           
-          showBlockingOverlay(reason, {
+          await showBlockingOverlay(reason, {
             threats: criticalThreats,
             score: phishingResult.score,
           });
@@ -4481,7 +4481,7 @@ if (window.checkExtensionLoaded) {
             logger.error(
               "🛡️ PROTECTION ACTIVE: Blocking due to very low detection score"
             );
-            showBlockingOverlay(reason, {
+            await showBlockingOverlay(reason, {
               threats: [{ description: reason, severity: "high" }],
               score: detectionResult.score,
             });
@@ -4591,7 +4591,7 @@ if (window.checkExtensionLoaded) {
               logger.warn("Failed to send page_blocked webhook:", err.message);
             });
             
-            showBlockingOverlay(reason, lastDetectionResult);
+            await showBlockingOverlay(reason, lastDetectionResult);
             disableFormSubmissions();
             disableCredentialInputs();
             stopDOMMonitoring(); // Stop monitoring once blocked
@@ -5039,7 +5039,7 @@ if (window.checkExtensionLoaded) {
   /**
    * Block page by redirecting to Chrome blocking page - NO USER OVERRIDE
    */
-  function showBlockingOverlay(reason, analysisData) {
+  async function showBlockingOverlay(reason, analysisData) {
     try {
       // CRITICAL: Set escalated to block flag FIRST to prevent any further scans
       escalatedToBlock = true;
@@ -5096,7 +5096,8 @@ if (window.checkExtensionLoaded) {
       logger.log("Enriched blocking details:", blockingDetails);
 
       // Store debug data before redirect so it can be retrieved on blocked page
-      storeDebugDataBeforeRedirect(location.href, analysisData);
+      // IMPORTANT: Wait for storage to complete before redirecting to avoid race condition
+      await storeDebugDataBeforeRedirect(location.href, analysisData);
 
       // Encode the details for the blocking page
       const encodedDetails = encodeURIComponent(
