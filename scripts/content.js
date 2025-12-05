@@ -48,6 +48,7 @@ if (window.checkExtensionLoaded) {
   let cachedPageSourceTime = 0;
   const PAGE_SOURCE_CACHE_TTL = 1000;
   let capturedLogs = []; // Console log capturing
+  let backgroundProcessingActive = false; // Prevent multiple background processing cycles
   const MAX_LOGS = 100; // Limit the number of stored logs
 
   // Override console methods to capture logs
@@ -957,7 +958,6 @@ if (window.checkExtensionLoaded) {
         },
         consoleLogs: capturedLogs.slice(), // Copy the captured logs
         pageSource: lastScannedPageSource || document.documentElement.outerHTML,
-        timestamp: Date.now(),
       };
 
       console.log(
@@ -965,9 +965,15 @@ if (window.checkExtensionLoaded) {
       );
 
       // Store in chrome storage with URL-based key
+      // Wrap in same structure as popup expects
       const storageKey = `debug_data_${btoa(originalUrl).substring(0, 50)}`;
+      const dataToStore = {
+        url: originalUrl,
+        timestamp: Date.now(),
+        debugData: debugData,
+      };
       await new Promise((resolve, reject) => {
-        chrome.storage.local.set({ [storageKey]: debugData }, () => {
+        chrome.storage.local.set({ [storageKey]: dataToStore }, () => {
           if (chrome.runtime.lastError) {
             reject(chrome.runtime.lastError);
           } else {
@@ -1168,8 +1174,11 @@ if (window.checkExtensionLoaded) {
       const requirements = detectionRules.m365_detection_requirements;
       const pageSource = getPageSource();
       const pageText = document.body?.textContent || "";
+      
+      // Get page title and meta tags
+      const pageTitle = document.title || "";
+      const metaTags = Array.from(document.querySelectorAll('meta'));
 
-      // Lower threshold - just need ANY Microsoft-related elements
       let totalWeight = 0;
       let totalElements = 0;
 
@@ -1185,15 +1194,45 @@ if (window.checkExtensionLoaded) {
           if (element.type === "source_content") {
             const regex = new RegExp(element.pattern, "i");
             found = regex.test(pageSource);
+          } else if (element.type === "page_title") {
+            // NEW: Check page title
+            found = element.patterns.some((pattern) => {
+              const regex = new RegExp(pattern, "i");
+              return regex.test(pageTitle);
+            });
+          } else if (element.type === "meta_tag") {
+            // NEW: Check meta tags
+            const metaAttr = element.attribute;
+            
+            found = metaTags.some(meta => {
+              let content = "";
+              
+              if (metaAttr === "description") {
+                content = meta.getAttribute("name") === "description" 
+                  ? meta.getAttribute("content") || ""
+                  : "";
+              } else if (metaAttr.startsWith("og:")) {
+                content = meta.getAttribute("property") === metaAttr
+                  ? meta.getAttribute("content") || ""
+                  : "";
+              } else {
+                content = meta.getAttribute("name") === metaAttr
+                  ? meta.getAttribute("content") || ""
+                  : "";
+              }
+              
+              if (content) {
+                return element.patterns.some(pattern => {
+                  const regex = new RegExp(pattern, "i");
+                  return regex.test(content);
+                });
+              }
+              return false;
+            });
           } else if (element.type === "css_pattern") {
             found = element.patterns.some((pattern) => {
               const regex = new RegExp(pattern, "i");
               return regex.test(pageSource);
-            });
-          } else if (element.type === "url_pattern") {
-            found = element.patterns.some((pattern) => {
-              const regex = new RegExp(pattern, "i");
-              return regex.test(window.location.href);
             });
           } else if (element.type === "text_content") {
             found = element.patterns.some((pattern) => {
@@ -1211,58 +1250,20 @@ if (window.checkExtensionLoaded) {
         }
       }
 
-      // Tightened threshold - require either:
-      // 1. At least one primary element (Microsoft-specific), OR
-      // 2. High weight secondary elements (weight >= 4), OR
-      // 3. Multiple secondary elements (3+) with decent weight (>= 3)
-      const primaryElements = allElements.filter(
-        (el) => el.category === "primary"
-      );
-      const foundPrimaryElements = [];
+      // Use same thresholds as isMicrosoftLogonPage
+      const thresholds = requirements.detection_thresholds || {};
+      const minWeight = thresholds.minimum_total_weight || 4;
+      const minElements = thresholds.minimum_elements_overall || 3;
 
-      // Check if any primary elements were found
-      for (const element of primaryElements) {
-        try {
-          let found = false;
-
-          if (element.type === "source_content") {
-            const regex = new RegExp(element.pattern, "i");
-            found = regex.test(pageSource);
-          } else if (element.type === "css_pattern") {
-            found = element.patterns.some((pattern) => {
-              const regex = new RegExp(pattern, "i");
-              return regex.test(pageSource);
-            });
-          }
-
-          if (found) {
-            foundPrimaryElements.push(element.id);
-          }
-        } catch (error) {
-          // Skip invalid patterns
-        }
-      }
-
-      const hasElements =
-        foundPrimaryElements.length > 0 ||
-        totalWeight >= 4 ||
-        (totalElements >= 3 && totalWeight >= 3);
+      const hasElements = totalWeight >= minWeight || totalElements >= minElements;
 
       if (hasElements) {
-        if (foundPrimaryElements.length > 0) {
-          logger.log(
-            `🔍 Microsoft-specific elements detected (Primary: ${foundPrimaryElements.join(
-              ", "
-            )}) - will check phishing indicators`
-          );
-        } else {
-          logger.log(
-            `🔍 High-confidence Microsoft elements detected (Weight: ${totalWeight}, Elements: ${totalElements}) - will check phishing indicators`
-          );
-        }
+        logger.log(
+          `🔍 Microsoft elements detected (Weight: ${totalWeight}, Elements: ${totalElements}) - will check phishing indicators`
+        );
       } else {
         logger.log(
-          `📄 Insufficient Microsoft indicators (Weight: ${totalWeight}, Elements: ${totalElements}, Primary: ${foundPrimaryElements.length}) - skipping phishing indicators for performance`
+          `📄 Insufficient Microsoft indicators (Weight: ${totalWeight}, Elements: ${totalElements}) - skipping phishing indicators for performance`
         );
       }
 
@@ -1297,6 +1298,10 @@ if (window.checkExtensionLoaded) {
       const foundElementsList = [];
       const missingElementsList = [];
 
+      // Get page title and meta tags once
+      const pageTitle = document.title || "";
+      const metaTags = Array.from(document.querySelectorAll('meta'));
+
       // Check primary elements (Microsoft-specific)
       const allElements = [
         ...(requirements.primary_elements || []),
@@ -1310,6 +1315,50 @@ if (window.checkExtensionLoaded) {
           if (element.type === "source_content") {
             const regex = new RegExp(element.pattern, "i");
             found = regex.test(pageSource);
+          } else if (element.type === "page_title") {
+            // NEW: Check page title against patterns
+            found = element.patterns.some((pattern) => {
+              const regex = new RegExp(pattern, "i");
+              return regex.test(pageTitle);
+            });
+            
+            if (found) {
+              logger.debug(`✓ Page title matched: "${pageTitle}"`);
+            }
+          } else if (element.type === "meta_tag") {
+            // NEW: Check meta tags
+            const metaAttr = element.attribute;
+            
+            found = metaTags.some(meta => {
+              let content = "";
+              
+              // Handle different meta tag types
+              if (metaAttr === "description") {
+                content = meta.getAttribute("name") === "description" 
+                  ? meta.getAttribute("content") || ""
+                  : "";
+              } else if (metaAttr.startsWith("og:")) {
+                content = meta.getAttribute("property") === metaAttr
+                  ? meta.getAttribute("content") || ""
+                  : "";
+              } else {
+                content = meta.getAttribute("name") === metaAttr
+                  ? meta.getAttribute("content") || ""
+                  : "";
+              }
+              
+              if (content) {
+                return element.patterns.some(pattern => {
+                  const regex = new RegExp(pattern, "i");
+                  return regex.test(content);
+                });
+              }
+              return false;
+            });
+            
+            if (found) {
+              logger.debug(`✓ Meta tag matched: ${metaAttr}`);
+            }
           } else if (element.type === "css_pattern") {
             // Check for CSS patterns in the page source
             found = element.patterns.some((pattern) => {
@@ -1378,27 +1427,23 @@ if (window.checkExtensionLoaded) {
         }
       }
 
-      // New categorized detection logic with flexible thresholds
+      // Rest of your existing detection logic...
       const thresholds = requirements.detection_thresholds || {};
       const minPrimary = thresholds.minimum_primary_elements || 1;
       const minWeight = thresholds.minimum_total_weight || 4;
       const minTotal = thresholds.minimum_elements_overall || 3;
-      const minSecondaryOnlyWeight =
-        thresholds.minimum_secondary_only_weight || 6;
-      const minSecondaryOnlyElements =
-        thresholds.minimum_secondary_only_elements || 5;
+      const minSecondaryOnlyWeight = thresholds.minimum_secondary_only_weight || 6;
+      const minSecondaryOnlyElements = thresholds.minimum_secondary_only_elements || 5;
 
       let isM365Page = false;
 
       if (primaryFound > 0) {
-        // If we have primary elements, use normal thresholds
         isM365Page =
           primaryFound >= minPrimary &&
           totalWeight >= minWeight &&
           totalElements >= minTotal;
       } else {
-        // If NO primary elements, require higher secondary evidence
-        // This catches phishing simulations while preventing false positives like GitHub
+        // Lower thresholds since we added high-value secondary indicators (page title = 3 weight)
         isM365Page =
           totalWeight >= minSecondaryOnlyWeight &&
           totalElements >= minSecondaryOnlyElements;
@@ -1771,6 +1816,286 @@ if (window.checkExtensionLoaded) {
   }
 
   /**
+   * Detection Primitives Engine
+   * Generic, reusable detection logic controlled 100% by rules file
+   */
+  const DetectionPrimitives = {
+    /**
+     * Check if any of the values are present in source
+     */
+    substring_present: (source, params) => {
+      const lower = source.toLowerCase();
+      return params.values.some(val => lower.includes(val.toLowerCase()));
+    },
+
+    /**
+     * Check if ALL values are present in source
+     */
+    all_substrings_present: (source, params) => {
+      const lower = source.toLowerCase();
+      return params.values.every(val => lower.includes(val.toLowerCase()));
+    },
+
+    /**
+     * Check if two words are within max_distance characters of each other
+     */
+    substring_proximity: (source, params) => {
+      const lower = source.toLowerCase();
+      const word1 = params.word1.toLowerCase();
+      const word2 = params.word2.toLowerCase();
+      
+      const idx1 = lower.indexOf(word1);
+      if (idx1 === -1) return false;
+      
+      // Search in a window around word1
+      const searchStart = Math.max(0, idx1 - params.max_distance);
+      const searchEnd = Math.min(lower.length, idx1 + word1.length + params.max_distance);
+      const chunk = lower.slice(searchStart, searchEnd);
+      
+      return chunk.includes(word2);
+    },
+
+    /**
+     * Check if minimum number of substrings are present
+     */
+    substring_count: (source, params) => {
+      const lower = source.toLowerCase();
+      const count = params.substrings.filter(sub => 
+        lower.includes(sub.toLowerCase())
+      ).length;
+      
+      return count >= params.min_count && 
+            count <= (params.max_count || Infinity);
+    },
+
+    /**
+     * Check if required substrings are present but prohibited ones are not
+     */
+    has_but_not: (source, params) => {
+      const lower = source.toLowerCase();
+      
+      // Check if any required substring is present
+      const hasRequired = params.required.some(req => 
+        lower.includes(req.toLowerCase())
+      );
+      
+      if (!hasRequired) return false;
+      
+      // Check if any prohibited substring is present
+      const hasProhibited = params.prohibited.some(pro => 
+        lower.includes(pro.toLowerCase())
+      );
+      
+      return !hasProhibited;
+    },
+
+    /**
+     * Check if patterns match within allowed count range
+     */
+    pattern_count: (source, params) => {
+      let totalCount = 0;
+      
+      for (const pattern of params.patterns) {
+        const regex = new RegExp(pattern, params.flags || 'gi');
+        const matches = source.match(regex);
+        totalCount += matches ? matches.length : 0;
+      }
+      
+      return totalCount >= params.min_count && 
+            totalCount <= (params.max_count || Infinity);
+    },
+
+    /**
+     * Check word density (occurrences per 1000 characters)
+     */
+    word_density: (source, params) => {
+      const lower = source.toLowerCase();
+      let totalCount = 0;
+      
+      for (const word of params.words) {
+        const regex = new RegExp(`\\b${word.toLowerCase()}\\b`, 'g');
+        const matches = lower.match(regex);
+        totalCount += matches ? matches.length : 0;
+      }
+      
+      const density = totalCount / (source.length / 1000);
+      return density >= params.min_density;
+    },
+
+    /**
+     * Check if substring appears before another
+     */
+    substring_before: (source, params) => {
+      const lower = source.toLowerCase();
+      const idx1 = lower.indexOf(params.first.toLowerCase());
+      const idx2 = lower.indexOf(params.second.toLowerCase());
+      
+      return idx1 !== -1 && idx2 !== -1 && idx1 < idx2;
+    },
+
+    /**
+     * Check if substring is within position range
+     */
+    substring_in_range: (source, params) => {
+      const lower = source.toLowerCase();
+      const idx = lower.indexOf(params.substring.toLowerCase());
+      
+      if (idx === -1) return false;
+      
+      return idx >= (params.min_position || 0) && 
+            idx <= (params.max_position || Infinity);
+    },
+
+    /**
+     * Composite: ALL operations must match
+     */
+    all_of: (source, params, context) => {
+      return params.operations.every(op => 
+        evaluatePrimitive(source, op, context)
+      );
+    },
+
+    /**
+     * Composite: ANY operation must match
+     */
+    any_of: (source, params, context) => {
+      return params.operations.some(op => 
+        evaluatePrimitive(source, op, context)
+      );
+    },
+
+    /**
+     * Check if resource URLs match pattern
+     */
+    resource_pattern: (source, params) => {
+      const pattern = new RegExp(params.pattern, params.flags || 'i');
+      
+      // Extract URLs from common attributes
+      const urlRegex = /(?:src|href|action)=["']([^"']+)["']/gi;
+      const urls = [...source.matchAll(urlRegex)].map(m => m[1]);
+      
+      const matchCount = urls.filter(url => pattern.test(url)).length;
+      
+      return matchCount >= (params.min_count || 1) && 
+            matchCount <= (params.max_count || Infinity);
+    },
+
+    /**
+     * Check if resources come from allowed domains
+     */
+    resource_from_domain: (source, params) => {
+      const resourceType = params.resource_type;
+      const allowedDomains = params.allowed_domains;
+      
+      // Find all resources of this type
+      const resourceRegex = new RegExp(
+        `(?:src|href)=["']([^"']*${resourceType}[^"']*)["']`, 
+        'gi'
+      );
+      const resources = [...source.matchAll(resourceRegex)].map(m => m[1]);
+      
+      if (resources.length === 0) return false;
+      
+      // Check if ALL resources are from allowed domains
+      return resources.every(res => 
+        allowedDomains.some(domain => res.includes(domain))
+      );
+    },
+
+    /**
+     * Check multiple proximity pairs
+     */
+    multi_proximity: (source, params) => {
+      const lower = source.toLowerCase();
+      
+      for (const pair of params.pairs) {
+        const word1 = pair.words[0].toLowerCase();
+        const word2 = pair.words[1].toLowerCase();
+        const maxDist = pair.max_distance;
+        
+        let idx1 = -1;
+        while ((idx1 = lower.indexOf(word1, idx1 + 1)) !== -1) {
+          const searchStart = Math.max(0, idx1 - maxDist);
+          const searchEnd = Math.min(lower.length, idx1 + word1.length + maxDist);
+          const chunk = lower.slice(searchStart, searchEnd);
+          
+          if (chunk.includes(word2)) {
+            return true; // Found one matching pair
+          }
+        }
+      }
+      
+      return false;
+    },
+
+    /**
+     * Check if form action doesn't contain required domains
+     */
+    form_action_check: (source, params) => {
+      const formRegex = /<form[^>]*action=["']([^"']*)["'][^>]*>/gi;
+      const actions = [...source.matchAll(formRegex)].map(m => m[1]);
+      
+      if (actions.length === 0) return false;
+      
+      const requiredDomains = params.required_domains;
+      const suspiciousForms = actions.filter(action => 
+        !requiredDomains.some(domain => action.includes(domain))
+      );
+      
+      return suspiciousForms.length > 0;
+    },
+
+    /**
+     * Check obfuscation patterns
+     */
+    obfuscation_check: (source, params) => {
+      const indicators = params.indicators;
+      let matchCount = 0;
+      
+      for (const indicator of indicators) {
+        if (source.includes(indicator)) {
+          matchCount++;
+        }
+      }
+      
+      return matchCount >= params.min_matches;
+    }
+  };
+
+  /**
+   * Evaluate a single primitive operation
+   */
+  function evaluatePrimitive(source, operation, context = {}) {
+    const primitive = DetectionPrimitives[operation.type];
+    
+    if (!primitive) {
+      logger.warn(`Unknown primitive type: ${operation.type}`);
+      return false;
+    }
+    
+    try {
+      // Check cache first
+      const cacheKey = `${operation.type}:${JSON.stringify(operation)}`;
+      if (context.cache && context.cache.has(cacheKey)) {
+        return context.cache.get(cacheKey);
+      }
+      
+      const result = primitive(source, operation, context);
+      const finalResult = operation.invert ? !result : result;
+      
+      // Cache result
+      if (context.cache) {
+        context.cache.set(cacheKey, finalResult);
+      }
+      
+      return finalResult;
+    } catch (error) {
+      logger.error(`Primitive ${operation.type} failed:`, error.message);
+      return false;
+    }
+  }
+
+  /**
    * Process phishing indicators using Web Worker for background processing
    */
   async function processPhishingIndicatorsInBackground(
@@ -2116,8 +2441,15 @@ if (window.checkExtensionLoaded) {
 
                 // Modular code-driven logic if flagged in rules file
                 if (indicator.code_driven === true && indicator.code_logic) {
-                  // Supported code-driven logic types: 'substring', 'substring_not', 'allowlist', 'optimized_regex'
-                  // All config comes from the rules file, not hardcoded here
+                  if (DetectionPrimitives[indicator.code_logic.type]) {
+                    try {
+                      matches = evaluatePrimitive(pageSource, indicator.code_logic, { cache: new Map() });
+                      if (matches) matchDetails = "primitive match";
+                    } catch (primitiveError) {
+                      logger.warn(`Primitive evaluation failed for ${indicator.id}, falling back:`, primitiveError.message);
+                      // Fall through to legacy code-driven logic below
+                    }
+                  }
                   if (indicator.code_logic.type === "substring") {
                     // All substrings must be present
                     matches = (indicator.code_logic.substrings || []).every(sub => pageSource.includes(sub));
@@ -2139,6 +2471,72 @@ if (window.checkExtensionLoaded) {
                           matches = true;
                           matchDetails = "page source (optimized regex)";
                         }
+                      }
+                    }
+                  } else if (indicator.code_logic.type === "substring_not_allowlist") {
+                    // Check if substring is present, then verify it's not from an allowed source
+                    const substring = indicator.code_logic.substring;
+                    const allowlist = indicator.code_logic.allowlist || [];
+                    
+                    if (substring && pageSource.includes(substring)) {
+                      // Substring found, now check if any allowlisted domain is also present
+                      const lowerSource = pageSource.toLowerCase();
+                      const isAllowed = allowlist.some(allowed => 
+                        lowerSource.includes(allowed.toLowerCase())
+                      );
+                      
+                      if (!isAllowed) {
+                        matches = true;
+                        matchDetails = "page source (substring not in allowlist)";
+                      }
+                    }
+                  } else if (indicator.code_logic.type === "substring_or_regex") {
+                    // Try fast substring search first, fall back to regex
+                    const substrings = indicator.code_logic.substrings || [];
+                    const lowerSource = pageSource.toLowerCase();
+                    
+                    // Fast path: check if any substring is present
+                    for (const sub of substrings) {
+                      if (lowerSource.includes(sub.toLowerCase())) {
+                        matches = true;
+                        matchDetails = "page source (substring match)";
+                        break;
+                      }
+                    }
+                    
+                    // Fallback: use regex if no substring matched
+                    if (!matches && indicator.code_logic.regex) {
+                      const pattern = new RegExp(indicator.code_logic.regex, indicator.code_logic.flags || "i");
+                      if (pattern.test(pageSource)) {
+                        matches = true;
+                        matchDetails = "page source (regex match)";
+                      }
+                    }
+                  } else if (indicator.code_logic.type === "substring_with_exclusions") {
+                    // Check for matching patterns but exclude if exclusion phrases are present
+                    const lowerSource = pageSource.toLowerCase();
+                    
+                    // First check exclusions - if any found, skip this rule entirely
+                    const excludeList = indicator.code_logic.exclude_if_contains || [];
+                    const hasExclusion = excludeList.some(excl => 
+                      lowerSource.includes(excl.toLowerCase())
+                    );
+                    
+                    if (!hasExclusion) {
+                      // No exclusions found, now check for matches
+                      if (indicator.code_logic.match_any) {
+                        // Simple match - check if any phrase is present
+                        matches = indicator.code_logic.match_any.some(phrase => 
+                          lowerSource.includes(phrase.toLowerCase())
+                        );
+                        if (matches) matchDetails = "page source (substring with exclusions)";
+                      } else if (indicator.code_logic.match_pattern_parts) {
+                        // Complex match - all pattern parts must be present
+                        const parts = indicator.code_logic.match_pattern_parts;
+                        matches = parts.every(partGroup => 
+                          partGroup.some(part => lowerSource.includes(part.toLowerCase()))
+                        );
+                        if (matches) matchDetails = "page source (pattern parts with exclusions)";
                       }
                     }
                   }
@@ -2270,7 +2668,7 @@ if (window.checkExtensionLoaded) {
                   // 1. Any blocking threat found (action='block')
                   // 2. Any critical severity threat found (instant block)
                   // 3. Multiple high/critical severity threats exceed escalation threshold
-                  if (blockThreats > 0 || criticalThreats > 0 || highSeverityThreats >= WARNING_THRESHOLD) {
+                  if (highSeverityThreats >= WARNING_THRESHOLD) {
                     const totalTime = Date.now() - startTime;
                     lastProcessingTime = totalTime;
                     
@@ -2323,7 +2721,107 @@ if (window.checkExtensionLoaded) {
                   `⏱️ Phishing indicators check (Main Thread - TIMEOUT): ${threats.length} threats found, ` +
                   `score: ${totalScore}, total time: ${totalTime}ms`
                 );
+                
+                // Resolve immediately with current results for display
                 resolve({ threats, score: totalScore });
+                
+                // Prevent multiple background processing cycles
+                if (backgroundProcessingActive) {
+                  logger.log(`🔄 Background processing already active, skipping`);
+                  return;
+                }
+                backgroundProcessingActive = true;
+                
+                // Continue processing remaining indicators in background
+                const remainingIndicators = detectionRules.phishing_indicators.slice(processedCount);
+                logger.log(`🔄 Continuing to process ${remainingIndicators.length} remaining indicators in background`);
+                
+                // Process remaining indicators asynchronously
+                setTimeout(async () => {
+                  let backgroundThreatsFound = false;
+                  
+                  for (const indicator of remainingIndicators) {
+                    try {
+                      const indicatorStart = performance.now();
+                      let matches = false;
+                      let matchDetails = "";
+                      
+                      // Use same code-driven or regex logic
+                      if (indicator.code_driven === true && indicator.code_logic) {
+                        // Same code-driven logic as above
+                        const lowerSource = pageSource.toLowerCase();
+                        
+                        if (indicator.code_logic.type === "substring_or_regex") {
+                          for (const sub of (indicator.code_logic.substrings || [])) {
+                            if (lowerSource.includes(sub.toLowerCase())) {
+                              matches = true;
+                              matchDetails = "page source (substring match)";
+                              break;
+                            }
+                          }
+                          if (!matches && indicator.code_logic.regex) {
+                            const pattern = new RegExp(indicator.code_logic.regex, indicator.code_logic.flags || "i");
+                            if (pattern.test(pageSource)) {
+                              matches = true;
+                              matchDetails = "page source (regex match)";
+                            }
+                          }
+                        } else if (indicator.code_logic.type === "substring_with_exclusions") {
+                          const excludeList = indicator.code_logic.exclude_if_contains || [];
+                          const hasExclusion = excludeList.some(excl => lowerSource.includes(excl.toLowerCase()));
+                          
+                          if (!hasExclusion) {
+                            if (indicator.code_logic.match_any) {
+                              matches = indicator.code_logic.match_any.some(phrase => 
+                                lowerSource.includes(phrase.toLowerCase())
+                              );
+                            } else if (indicator.code_logic.match_pattern_parts) {
+                              // Handle pattern parts - all groups must match
+                              const parts = indicator.code_logic.match_pattern_parts;
+                              matches = parts.every(partGroup => 
+                                partGroup.some(part => lowerSource.includes(part.toLowerCase()))
+                              );
+                            }
+                          }
+                        }
+                      } else {
+                        const pattern = new RegExp(indicator.pattern, indicator.flags || "i");
+                        if (pattern.test(pageSource)) {
+                          matches = true;
+                          matchDetails = "page source";
+                        }
+                      }
+                      
+                      if (matches) {
+                        logger.log(`🔄 Background processing found threat: ${indicator.id}`);
+                        backgroundThreatsFound = true;
+                        
+                        // Check if we need to escalate to block mode
+                        if (indicator.severity === 'critical' || indicator.action === 'block') {
+                          logger.warn(`⚠️ Critical threat detected in background processing: ${indicator.id}`);
+                          // Don't trigger re-scan immediately, just log it
+                          // The threat will be picked up on next regular scan or page interaction
+                          logger.warn(`💡 Critical threat logged - will be applied on next scan`);
+                        }
+                      }
+                      
+                      const indicatorEnd = performance.now();
+                      logger.log(`⏱️ Background indicator [${indicator.id}] processed in ${(indicatorEnd - indicatorStart).toFixed(2)} ms`);
+                    } catch (error) {
+                      logger.warn(`Error in background processing of ${indicator.id}:`, error.message);
+                    }
+                  }
+                  
+                  backgroundProcessingActive = false;
+                  logger.log(`✅ Background processing completed. Threats found: ${backgroundThreatsFound}`);
+                  
+                  // If critical threats were found in background and we're not already showing a block page
+                  // schedule a re-scan for next user interaction
+                  if (backgroundThreatsFound && !escalatedToBlock) {
+                    logger.log(`📋 Critical threats found in background - will re-scan on next page change`);
+                  }
+                }, 100);
+                
                 return;
               }
 
