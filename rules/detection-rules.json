@@ -173,9 +173,9 @@
       {
         "id": "favicon_microsoft",
         "type": "source_content",
-        "pattern": "(?:favicon|icon).*(?:microsoft|msft|m365|office)",
+        "pattern": "<link[^>]+rel=[\"'](?:icon|shortcut icon|apple-touch-icon)[\"'][^>]+href=[\"'][^\"']*(?:microsoft|msft|m365\\.ico|office)[^\"']*[\"'][^>]*>",
         "description": "Favicon references Microsoft branding",
-        "weight": 1,
+        "weight": 0.5,
         "category": "secondary"
       },
       {

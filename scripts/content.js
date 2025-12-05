@@ -1174,8 +1174,11 @@ if (window.checkExtensionLoaded) {
       const requirements = detectionRules.m365_detection_requirements;
       const pageSource = getPageSource();
       const pageText = document.body?.textContent || "";
+      
+      // Get page title and meta tags
+      const pageTitle = document.title || "";
+      const metaTags = Array.from(document.querySelectorAll('meta'));
 
-      // Lower threshold - just need ANY Microsoft-related elements
       let totalWeight = 0;
       let totalElements = 0;
 
@@ -1191,15 +1194,45 @@ if (window.checkExtensionLoaded) {
           if (element.type === "source_content") {
             const regex = new RegExp(element.pattern, "i");
             found = regex.test(pageSource);
+          } else if (element.type === "page_title") {
+            // NEW: Check page title
+            found = element.patterns.some((pattern) => {
+              const regex = new RegExp(pattern, "i");
+              return regex.test(pageTitle);
+            });
+          } else if (element.type === "meta_tag") {
+            // NEW: Check meta tags
+            const metaAttr = element.attribute;
+            
+            found = metaTags.some(meta => {
+              let content = "";
+              
+              if (metaAttr === "description") {
+                content = meta.getAttribute("name") === "description" 
+                  ? meta.getAttribute("content") || ""
+                  : "";
+              } else if (metaAttr.startsWith("og:")) {
+                content = meta.getAttribute("property") === metaAttr
+                  ? meta.getAttribute("content") || ""
+                  : "";
+              } else {
+                content = meta.getAttribute("name") === metaAttr
+                  ? meta.getAttribute("content") || ""
+                  : "";
+              }
+              
+              if (content) {
+                return element.patterns.some(pattern => {
+                  const regex = new RegExp(pattern, "i");
+                  return regex.test(content);
+                });
+              }
+              return false;
+            });
           } else if (element.type === "css_pattern") {
             found = element.patterns.some((pattern) => {
               const regex = new RegExp(pattern, "i");
               return regex.test(pageSource);
-            });
-          } else if (element.type === "url_pattern") {
-            found = element.patterns.some((pattern) => {
-              const regex = new RegExp(pattern, "i");
-              return regex.test(window.location.href);
             });
           } else if (element.type === "text_content") {
             found = element.patterns.some((pattern) => {
@@ -1217,58 +1250,20 @@ if (window.checkExtensionLoaded) {
         }
       }
 
-      // Tightened threshold - require either:
-      // 1. At least one primary element (Microsoft-specific), OR
-      // 2. High weight secondary elements (weight >= 4), OR
-      // 3. Multiple secondary elements (3+) with decent weight (>= 3)
-      const primaryElements = allElements.filter(
-        (el) => el.category === "primary"
-      );
-      const foundPrimaryElements = [];
+      // Use same thresholds as isMicrosoftLogonPage
+      const thresholds = requirements.detection_thresholds || {};
+      const minWeight = thresholds.minimum_total_weight || 4;
+      const minElements = thresholds.minimum_elements_overall || 3;
 
-      // Check if any primary elements were found
-      for (const element of primaryElements) {
-        try {
-          let found = false;
-
-          if (element.type === "source_content") {
-            const regex = new RegExp(element.pattern, "i");
-            found = regex.test(pageSource);
-          } else if (element.type === "css_pattern") {
-            found = element.patterns.some((pattern) => {
-              const regex = new RegExp(pattern, "i");
-              return regex.test(pageSource);
-            });
-          }
-
-          if (found) {
-            foundPrimaryElements.push(element.id);
-          }
-        } catch (error) {
-          // Skip invalid patterns
-        }
-      }
-
-      const hasElements =
-        foundPrimaryElements.length > 0 ||
-        totalWeight >= 4 ||
-        (totalElements >= 3 && totalWeight >= 3);
+      const hasElements = totalWeight >= minWeight || totalElements >= minElements;
 
       if (hasElements) {
-        if (foundPrimaryElements.length > 0) {
-          logger.log(
-            `🔍 Microsoft-specific elements detected (Primary: ${foundPrimaryElements.join(
-              ", "
-            )}) - will check phishing indicators`
-          );
-        } else {
-          logger.log(
-            `🔍 High-confidence Microsoft elements detected (Weight: ${totalWeight}, Elements: ${totalElements}) - will check phishing indicators`
-          );
-        }
+        logger.log(
+          `🔍 Microsoft elements detected (Weight: ${totalWeight}, Elements: ${totalElements}) - will check phishing indicators`
+        );
       } else {
         logger.log(
-          `📄 Insufficient Microsoft indicators (Weight: ${totalWeight}, Elements: ${totalElements}, Primary: ${foundPrimaryElements.length}) - skipping phishing indicators for performance`
+          `📄 Insufficient Microsoft indicators (Weight: ${totalWeight}, Elements: ${totalElements}) - skipping phishing indicators for performance`
         );
       }
 
