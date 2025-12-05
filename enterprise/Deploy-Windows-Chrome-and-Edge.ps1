@@ -113,7 +113,7 @@ function Configure-ExtensionSettings {
     }
 
     # Clear any existing properties
-    Remove-ItemProperty -Path $webhookEventsKey -Name * -Force -ErrorAction SilentlyContinue | Out-Null
+    Remove-ItemProperty -Path $webhookEventsKey -Name * -Force | Out-Null
 
     # Set webhook events with names starting from 1
     for ($i = 0; $i -lt $webhookEvents.Count; $i++) {
