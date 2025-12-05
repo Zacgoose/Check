@@ -972,7 +972,6 @@ if (window.checkExtensionLoaded) {
         timestamp: Date.now(),
         debugData: debugData,
       };
-      
       await new Promise((resolve, reject) => {
         chrome.storage.local.set({ [storageKey]: dataToStore }, () => {
           if (chrome.runtime.lastError) {
@@ -1778,6 +1777,286 @@ if (window.checkExtensionLoaded) {
   }
 
   /**
+   * Detection Primitives Engine
+   * Generic, reusable detection logic controlled 100% by rules file
+   */
+  const DetectionPrimitives = {
+    /**
+     * Check if any of the values are present in source
+     */
+    substring_present: (source, params) => {
+      const lower = source.toLowerCase();
+      return params.values.some(val => lower.includes(val.toLowerCase()));
+    },
+
+    /**
+     * Check if ALL values are present in source
+     */
+    all_substrings_present: (source, params) => {
+      const lower = source.toLowerCase();
+      return params.values.every(val => lower.includes(val.toLowerCase()));
+    },
+
+    /**
+     * Check if two words are within max_distance characters of each other
+     */
+    substring_proximity: (source, params) => {
+      const lower = source.toLowerCase();
+      const word1 = params.word1.toLowerCase();
+      const word2 = params.word2.toLowerCase();
+      
+      const idx1 = lower.indexOf(word1);
+      if (idx1 === -1) return false;
+      
+      // Search in a window around word1
+      const searchStart = Math.max(0, idx1 - params.max_distance);
+      const searchEnd = Math.min(lower.length, idx1 + word1.length + params.max_distance);
+      const chunk = lower.slice(searchStart, searchEnd);
+      
+      return chunk.includes(word2);
+    },
+
+    /**
+     * Check if minimum number of substrings are present
+     */
+    substring_count: (source, params) => {
+      const lower = source.toLowerCase();
+      const count = params.substrings.filter(sub => 
+        lower.includes(sub.toLowerCase())
+      ).length;
+      
+      return count >= params.min_count && 
+            count <= (params.max_count || Infinity);
+    },
+
+    /**
+     * Check if required substrings are present but prohibited ones are not
+     */
+    has_but_not: (source, params) => {
+      const lower = source.toLowerCase();
+      
+      // Check if any required substring is present
+      const hasRequired = params.required.some(req => 
+        lower.includes(req.toLowerCase())
+      );
+      
+      if (!hasRequired) return false;
+      
+      // Check if any prohibited substring is present
+      const hasProhibited = params.prohibited.some(pro => 
+        lower.includes(pro.toLowerCase())
+      );
+      
+      return !hasProhibited;
+    },
+
+    /**
+     * Check if patterns match within allowed count range
+     */
+    pattern_count: (source, params) => {
+      let totalCount = 0;
+      
+      for (const pattern of params.patterns) {
+        const regex = new RegExp(pattern, params.flags || 'gi');
+        const matches = source.match(regex);
+        totalCount += matches ? matches.length : 0;
+      }
+      
+      return totalCount >= params.min_count && 
+            totalCount <= (params.max_count || Infinity);
+    },
+
+    /**
+     * Check word density (occurrences per 1000 characters)
+     */
+    word_density: (source, params) => {
+      const lower = source.toLowerCase();
+      let totalCount = 0;
+      
+      for (const word of params.words) {
+        const regex = new RegExp(`\\b${word.toLowerCase()}\\b`, 'g');
+        const matches = lower.match(regex);
+        totalCount += matches ? matches.length : 0;
+      }
+      
+      const density = totalCount / (source.length / 1000);
+      return density >= params.min_density;
+    },
+
+    /**
+     * Check if substring appears before another
+     */
+    substring_before: (source, params) => {
+      const lower = source.toLowerCase();
+      const idx1 = lower.indexOf(params.first.toLowerCase());
+      const idx2 = lower.indexOf(params.second.toLowerCase());
+      
+      return idx1 !== -1 && idx2 !== -1 && idx1 < idx2;
+    },
+
+    /**
+     * Check if substring is within position range
+     */
+    substring_in_range: (source, params) => {
+      const lower = source.toLowerCase();
+      const idx = lower.indexOf(params.substring.toLowerCase());
+      
+      if (idx === -1) return false;
+      
+      return idx >= (params.min_position || 0) && 
+            idx <= (params.max_position || Infinity);
+    },
+
+    /**
+     * Composite: ALL operations must match
+     */
+    all_of: (source, params, context) => {
+      return params.operations.every(op => 
+        evaluatePrimitive(source, op, context)
+      );
+    },
+
+    /**
+     * Composite: ANY operation must match
+     */
+    any_of: (source, params, context) => {
+      return params.operations.some(op => 
+        evaluatePrimitive(source, op, context)
+      );
+    },
+
+    /**
+     * Check if resource URLs match pattern
+     */
+    resource_pattern: (source, params) => {
+      const pattern = new RegExp(params.pattern, params.flags || 'i');
+      
+      // Extract URLs from common attributes
+      const urlRegex = /(?:src|href|action)=["']([^"']+)["']/gi;
+      const urls = [...source.matchAll(urlRegex)].map(m => m[1]);
+      
+      const matchCount = urls.filter(url => pattern.test(url)).length;
+      
+      return matchCount >= (params.min_count || 1) && 
+            matchCount <= (params.max_count || Infinity);
+    },
+
+    /**
+     * Check if resources come from allowed domains
+     */
+    resource_from_domain: (source, params) => {
+      const resourceType = params.resource_type;
+      const allowedDomains = params.allowed_domains;
+      
+      // Find all resources of this type
+      const resourceRegex = new RegExp(
+        `(?:src|href)=["']([^"']*${resourceType}[^"']*)["']`, 
+        'gi'
+      );
+      const resources = [...source.matchAll(resourceRegex)].map(m => m[1]);
+      
+      if (resources.length === 0) return false;
+      
+      // Check if ALL resources are from allowed domains
+      return resources.every(res => 
+        allowedDomains.some(domain => res.includes(domain))
+      );
+    },
+
+    /**
+     * Check multiple proximity pairs
+     */
+    multi_proximity: (source, params) => {
+      const lower = source.toLowerCase();
+      
+      for (const pair of params.pairs) {
+        const word1 = pair.words[0].toLowerCase();
+        const word2 = pair.words[1].toLowerCase();
+        const maxDist = pair.max_distance;
+        
+        let idx1 = -1;
+        while ((idx1 = lower.indexOf(word1, idx1 + 1)) !== -1) {
+          const searchStart = Math.max(0, idx1 - maxDist);
+          const searchEnd = Math.min(lower.length, idx1 + word1.length + maxDist);
+          const chunk = lower.slice(searchStart, searchEnd);
+          
+          if (chunk.includes(word2)) {
+            return true; // Found one matching pair
+          }
+        }
+      }
+      
+      return false;
+    },
+
+    /**
+     * Check if form action doesn't contain required domains
+     */
+    form_action_check: (source, params) => {
+      const formRegex = /<form[^>]*action=["']([^"']*)["'][^>]*>/gi;
+      const actions = [...source.matchAll(formRegex)].map(m => m[1]);
+      
+      if (actions.length === 0) return false;
+      
+      const requiredDomains = params.required_domains;
+      const suspiciousForms = actions.filter(action => 
+        !requiredDomains.some(domain => action.includes(domain))
+      );
+      
+      return suspiciousForms.length > 0;
+    },
+
+    /**
+     * Check obfuscation patterns
+     */
+    obfuscation_check: (source, params) => {
+      const indicators = params.indicators;
+      let matchCount = 0;
+      
+      for (const indicator of indicators) {
+        if (source.includes(indicator)) {
+          matchCount++;
+        }
+      }
+      
+      return matchCount >= params.min_matches;
+    }
+  };
+
+  /**
+   * Evaluate a single primitive operation
+   */
+  function evaluatePrimitive(source, operation, context = {}) {
+    const primitive = DetectionPrimitives[operation.type];
+    
+    if (!primitive) {
+      logger.warn(`Unknown primitive type: ${operation.type}`);
+      return false;
+    }
+    
+    try {
+      // Check cache first
+      const cacheKey = `${operation.type}:${JSON.stringify(operation)}`;
+      if (context.cache && context.cache.has(cacheKey)) {
+        return context.cache.get(cacheKey);
+      }
+      
+      const result = primitive(source, operation, context);
+      const finalResult = operation.invert ? !result : result;
+      
+      // Cache result
+      if (context.cache) {
+        context.cache.set(cacheKey, finalResult);
+      }
+      
+      return finalResult;
+    } catch (error) {
+      logger.error(`Primitive ${operation.type} failed:`, error.message);
+      return false;
+    }
+  }
+
+  /**
    * Process phishing indicators using Web Worker for background processing
    */
   async function processPhishingIndicatorsInBackground(
@@ -2123,8 +2402,15 @@ if (window.checkExtensionLoaded) {
 
                 // Modular code-driven logic if flagged in rules file
                 if (indicator.code_driven === true && indicator.code_logic) {
-                  // Supported code-driven logic types: 'substring', 'substring_not', 'allowlist', 'substring_not_allowlist', 'substring_or_regex', 'substring_with_exclusions'
-                  // All config comes from the rules file, not hardcoded here
+                  if (DetectionPrimitives[indicator.code_logic.type]) {
+                    try {
+                      matches = evaluatePrimitive(pageSource, indicator.code_logic, { cache: new Map() });
+                      if (matches) matchDetails = "primitive match";
+                    } catch (primitiveError) {
+                      logger.warn(`Primitive evaluation failed for ${indicator.id}, falling back:`, primitiveError.message);
+                      // Fall through to legacy code-driven logic below
+                    }
+                  }
                   if (indicator.code_logic.type === "substring") {
                     // All substrings must be present
                     matches = (indicator.code_logic.substrings || []).every(sub => pageSource.includes(sub));

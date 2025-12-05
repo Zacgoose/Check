@@ -467,8 +467,39 @@
     },
     {
       "id": "phi_004",
-      "pattern": "(?:urgent.{0,500}(action|update|verify)|immediate.{0,500}(action|attention)|act.{0,500}(now|immediately)).{0,500}(microsoft|office|365)",
-      "flags": "i",
+      "code_driven": true,
+      "code_logic": {
+        "type": "all_of",
+        "operations": [
+          {
+            "type": "any_of",
+            "operations": [
+              {
+                "type": "substring_proximity",
+                "word1": "urgent",
+                "word2": "action",
+                "max_distance": 500
+              },
+              {
+                "type": "substring_proximity",
+                "word1": "immediate",
+                "word2": "attention",
+                "max_distance": 500
+              },
+              {
+                "type": "substring_proximity",
+                "word1": "act",
+                "word2": "now",
+                "max_distance": 500
+              }
+            ]
+          },
+          {
+            "type": "substring_present",
+            "values": ["microsoft", "office", "365"]
+          }
+        ]
+      },
       "severity": "medium",
       "description": "Urgency tactics targeting Microsoft users",
       "action": "warn",
@@ -499,14 +530,11 @@
       "id": "phi_012_suspicious_resources",
       "code_driven": true,
       "code_logic": {
-        "type": "substring_not_allowlist",
-        "substring": "customcss",
-        "allowlist": [
-          "aadcdn.msftauthimages.net"
-        ]
+        "type": "resource_from_domain",
+        "resource_type": "customcss",
+        "allowed_domains": ["aadcdn.msftauthimages.net"],
+        "invert": true
       },
-      "pattern": "customcss(?![^]*aadcdn\\.msftauthimages\\.net)",
-      "flags": "i",
       "severity": "high",
       "description": "Custom CSS loaded from unauthorized domain",
       "action": "block",
@@ -515,20 +543,62 @@
     },
     {
       "id": "phi_006",
-      "pattern": "(?:microsoft|office|365).{0,2000}(?:login|password|signin).{0,500}form.{0,200}action(?!.*login\\.microsoftonline\\.com)(?!.*\\.auth/login/)(?!.*azure\\s+static\\s+web\\s+apps)(?!.*easy\\s+auth)",
-      "flags": "i",
+      "code_driven": true,
+      "code_logic": {
+        "type": "all_of",
+        "operations": [
+          {
+            "type": "substring_present",
+            "values": ["microsoft", "office", "365"]
+          },
+          {
+            "type": "substring_present",
+            "values": ["login", "password", "signin"]
+          },
+          {
+            "type": "pattern_count",
+            "patterns": ["<form[^>]*action"],
+            "flags": "i",
+            "min_count": 1
+          },
+          {
+            "type": "has_but_not",
+            "required": ["action"],
+            "prohibited": [
+              "login.microsoftonline.com",
+              ".auth/login/",
+              "azure static web apps",
+              "easy auth"
+            ]
+          }
+        ]
+      },
       "severity": "high",
-      "description": "Microsoft-branded login form POST URL not pointing to login.microsoftonline.com",
+      "description": "Microsoft-branded login form not posting to Microsoft domain",
       "action": "warn",
       "category": "credential_harvesting",
       "confidence": 0.8
     },
     {
       "id": "phi_010_aad_fingerprint",
-      "pattern": "(?:loginfmt|i0116).{0,1000}(?:idSIButton9|type=[\"']submit[\"'])(?!.*login\\.microsoftonline\\.com)",
-      "flags": "i",
+      "code_driven": true,
+      "code_logic": {
+        "type": "all_of",
+        "operations": [
+          {
+            "type": "substring_count",
+            "substrings": ["loginfmt", "i0116", "idSIButton9"],
+            "min_count": 2
+          },
+          {
+            "type": "has_but_not",
+            "required": ["password"],
+            "prohibited": ["login.microsoftonline.com"]
+          }
+        ]
+      },
       "severity": "critical",
-      "description": "AAD-like login interface detected on non-Microsoft domain",
+      "description": "AAD-like login interface on non-Microsoft domain",
       "action": "block",
       "category": "interface_spoofing",
       "confidence": 0.98
@@ -545,72 +615,155 @@
     },
     {
       "id": "phi_013_form_action_mismatch",
-      "pattern": "(?:microsoft|office|365).{0,1500}(?:password|passwd).{0,500}action=(?!.*login\\.microsoftonline\\.com)",
-      "flags": "i",
+      "code_driven": true,
+      "code_logic": {
+        "type": "all_of",
+        "operations": [
+          {
+            "type": "substring_present",
+            "values": ["microsoft", "office", "365"]
+          },
+          {
+            "type": "substring_present",
+            "values": ["password", "passwd"]
+          },
+          {
+            "type": "form_action_check",
+            "required_domains": ["login.microsoftonline.com"]
+          }
+        ]
+      },
       "severity": "critical",
-      "description": "Microsoft-branded password form with non-Microsoft action URL",
+      "description": "Microsoft-branded password form with non-Microsoft action",
       "action": "block",
       "category": "credential_harvesting",
       "confidence": 0.95
     },
     {
       "id": "phi_014_devtools_blocking",
-      "pattern": "(?:debugger|devtools?|F12.*prevent|contextmenu.*prevent|selectstart.*prevent|setInterval.*debugger|while.*true.*debugger)",
-      "flags": "i",
+      "code_driven": true,
+      "code_logic": {
+        "type": "obfuscation_check",
+        "indicators": [
+          "debugger",
+          "devtools",
+          "devtool",
+          "F12",
+          "f12",
+          "contextmenu",
+          "selectstart",
+          "dragstart",
+          "setInterval(function(){debugger;}",
+          "setInterval(function(){debugger}",
+          "while(true){debugger;}",
+          "while(true){debugger}",
+          "while(1){debugger",
+          "keyCode === 123",
+          "keyCode==123",
+          "keyCode == 123",
+          "which === 123",
+          "which==123",
+          "which == 123",
+          "keyCode===0x7b",
+          "keyCode==0x7b",
+          "keyCode == 0x7b",
+          "console.clear()",
+          "console.clear",
+          "addEventListener('contextmenu'",
+          "addEventListener(\"contextmenu\"",
+          "oncontextmenu=\"return false\"",
+          "oncontextmenu='return false'",
+          "onselectstart=\"return false\"",
+          "onselectstart='return false'",
+          "ondragstart=\"return false\"",
+          "ondragstart='return false'",
+          "function(_0x",
+          "_0x506b",
+          "_0x",
+          "ctrlKey&&",
+          "shiftKey&&",
+          "preventDefault().*console",
+          "preventDefault().*error",
+          "attempt mitigated",
+          "Inspect element attempt mitigated",
+          "Console attempt mitigated",
+          "Right-click attempt mitigated",
+          "F12 attempt mitigated",
+          "DevTools attempt mitigated",
+          "antiDebug",
+          "anti-debug",
+          "enableSecurityFeatures",
+          "blockDevTools",
+          "detectDevTools",
+          "setInterval.*redirect",
+          "document.onkeydown",
+          "document.onkeypress",
+          "window.onkeydown",
+          "event.ctrlKey",
+          "event.shiftKey",
+          "event.keyCode"
+        ],
+        "min_matches": 2
+      },
       "severity": "high",
       "description": "Page attempts to block or detect developer tools usage",
       "action": "block",
       "category": "anti_analysis",
-      "confidence": 0.9,
-      "additional_checks": [
-        "document.addEventListener('keydown'",
-        "event.keyCode === 123",
-        "event.which === 123",
-        "debugger;",
-        "setInterval(function(){debugger;}",
-        "while(true){debugger;}",
-        "console.clear()",
-        "addEventListener('contextmenu'",
-        "oncontextmenu=\"return false\"",
-        "onselectstart=\"return false\"",
-        "ondragstart=\"return false\"",
-        "function(_0x",
-        "_0x506b",
-        "keyCode==0x7b",
-        "ctrlKey&&.*shiftKey&&.*keyCode==0x",
-        "preventDefault().*console.*error",
-        "attempt mitigated",
-        "Inspect element attempt mitigated",
-        "Console attempt mitigated",
-        "Right-click attempt mitigated",
-        "antiDebug",
-        "enableSecurityFeatures",
-        "setInterval.*redirect"
-      ]
+      "confidence": 0.9
     },
     {
       "id": "phi_015_code_obfuscation",
-      "pattern": "(?:eval\\s*\\(\\s*(?:atob|unescape|decodeURIComponent)|(?:new\\s+)?Function\\s*\\([^)]{0,100}atob|setInterval\\s*\\([^)]{0,100}(?:atob|eval)|setTimeout\\s*\\([^)]{0,100}(?:atob|eval)|document\\.write\\s*\\([^)]{0,100}(?:atob|unescape))",
-      "flags": "i",
+      "code_driven": true,
+      "code_logic": {
+        "type": "all_of",
+        "operations": [
+          {
+            "type": "obfuscation_check",
+            "indicators": [
+              "eval(atob(",
+              "eval(unescape(",
+              "eval(decodeURIComponent(",
+              "eval (atob(",
+              "eval (unescape(",
+              "Function(atob(",
+              "Function(unescape(",
+              "new Function(atob(",
+              "new Function(unescape(",
+              "setInterval(eval(",
+              "setTimeout(eval(",
+              "setInterval(atob(",
+              "setTimeout(atob(",
+              "document.write(atob(",
+              "document.write(unescape(",
+              "document.write(decodeURIComponent(",
+              ".innerHTML=atob(",
+              ".innerHTML=unescape(",
+              ".innerHTML=eval(",
+              "String.fromCharCode",
+              "fromCharCode"
+            ],
+            "min_matches": 1
+          },
+          {
+            "type": "substring_present",
+            "values": [
+              "microsoft",
+              "office",
+              "365",
+              "login",
+              "password",
+              "credential",
+              "signin",
+              "sign-in"
+            ]
+          }
+        ]
+      },
       "severity": "high",
       "description": "Page contains suspicious JavaScript obfuscation patterns commonly used in malware",
       "action": "warn",
       "category": "code_obfuscation",
-      "confidence": 0.85,
-      "context_required": [
-        "(?:microsoft|office|365|login|password|credential)"
-      ],
-      "additional_checks": [
-        "eval(atob(",
-        "eval(unescape(",
-        "eval(decodeURIComponent(",
-        "Function(atob(",
-        "new Function(atob(",
-        "setInterval(eval(",
-        "setTimeout(eval(",
-        "document.write(atob(",
-        "document.write(unescape("
-      ]
+      "confidence": 0.85
     },
     {
       "id": "phi_008",
@@ -650,36 +803,54 @@
       "id": "phi_001_enhanced",
       "code_driven": true,
       "code_logic": {
-        "type": "substring_with_exclusions",
-        "match_any": [
+        "type": "has_but_not",
+        "required": [
           "secure-microsoft",
-          "secure-office",
+          "secure-office", 
           "secure-365",
           "secure-outlook",
+          "securemicrosoft",
+          "secureoffice",
+          "secure365",
+          "secureoutlook",
           "microsoft-secure",
           "microsoft-login",
           "microsoft-auth",
+          "microsoftsecure",
+          "microsoftlogin",
+          "microsoftauth",
           "office-secure",
           "office-login",
           "office-auth",
+          "officesecure",
+          "officelogin",
+          "officeauth",
           "365-secure",
           "365-login",
-          "365-auth"
+          "365-auth",
+          "365secure",
+          "365login",
+          "365auth",
+          "outlook-secure",
+          "outlook-login",
+          "outlooksecure",
+          "outlooklogin"
         ],
-        "exclude_if_contains": [
+        "prohibited": [
           "sign in with microsoft",
           "continue with microsoft",
           "login with microsoft",
           "authenticate with microsoft",
           "sso microsoft",
           "oauth microsoft",
+          "third party auth",
+          "third-party auth",
           ".auth/login/",
           "azure static web apps",
-          "easy auth"
+          "easy auth",
+          "easyauth"
         ]
       },
-      "pattern": "(?!.*(?:sign\\s+in\\s+with\\s+microsoft|continue\\s+with\\s+microsoft|login\\s+with\\s+microsoft|authenticate\\s+with\\s+microsoft|sso\\s+microsoft|oauth\\s+microsoft|\\.auth/login/|azure\\s+static\\s+web\\s+apps|easy\\s+auth))(?:secure-?(?:microsoft|office|365|outlook)|microsoft-?(?:secure|login|auth)|office-?(?:secure|login|auth)|365-?(?:secure|login|auth))",
-      "flags": "i",
       "severity": "critical",
       "description": "Enhanced detection of domains mimicking Microsoft services with security/login keywords (excludes legitimate SSO)",
       "action": "block",
@@ -690,27 +861,77 @@
       "id": "phi_002",
       "code_driven": true,
       "code_logic": {
-        "type": "substring_with_exclusions",
-        "match_pattern_parts": [
-          ["microsoft", "office", "365"],
-          ["security", "verification", "account"],
-          ["team", "department", "support"]
-        ],
-        "exclude_if_contains": [
-          "sign in with microsoft",
-          "continue with microsoft",
-          "login with microsoft",
-          "sso",
-          "oauth",
-          "third party auth",
-          "third-party auth",
-          ".auth/login/",
-          "azure static web apps",
-          "easy auth"
+        "type": "all_of",
+        "operations": [
+          {
+            "type": "substring_present",
+            "values": ["microsoft", "office", "365", "outlook", "azure"]
+          },
+          {
+            "type": "any_of",
+            "operations": [
+              {
+                "type": "substring_proximity",
+                "word1": "security",
+                "word2": "team",
+                "max_distance": 300
+              },
+              {
+                "type": "substring_proximity",
+                "word1": "security",
+                "word2": "department",
+                "max_distance": 300
+              },
+              {
+                "type": "substring_proximity",
+                "word1": "security",
+                "word2": "support",
+                "max_distance": 300
+              },
+              {
+                "type": "substring_proximity",
+                "word1": "verification",
+                "word2": "team",
+                "max_distance": 300
+              },
+              {
+                "type": "substring_proximity",
+                "word1": "verification",
+                "word2": "department",
+                "max_distance": 300
+              },
+              {
+                "type": "substring_proximity",
+                "word1": "account",
+                "word2": "team",
+                "max_distance": 300
+              },
+              {
+                "type": "substring_proximity",
+                "word1": "account",
+                "word2": "support",
+                "max_distance": 300
+              }
+            ]
+          },
+          {
+            "type": "has_but_not",
+            "required": ["team", "department", "support"],
+            "prohibited": [
+              "sign in with microsoft",
+              "continue with microsoft",
+              "login with microsoft",
+              "sso",
+              "oauth",
+              "third party auth",
+              "third-party auth",
+              ".auth/login/",
+              "azure static web apps",
+              "easy auth"
+            ]
+          }
         ]
       },
-      "pattern": "(?!.*(?:sign\\s+in\\s+with\\s+microsoft|continue\\s+with\\s+microsoft|login\\s+with\\s+microsoft|sso|oauth|third.?party\\s+auth|\\.auth/login/|azure\\s+static\\s+web\\s+apps|easy\\s+auth))(?:microsoft|office|365).{0,500}(?:security|verification|account).{0,300}(?:team|department|support)",
-      "flags": "i",
       "severity": "high",
       "description": "Impersonation of Microsoft security team (excludes legitimate SSO and third-party auth)",
       "action": "block",
@@ -721,47 +942,60 @@
       "id": "phi_003",
       "code_driven": true,
       "code_logic": {
-        "type": "substring_or_regex",
-        "substrings": [
-          "verify account",
-          "suspended 365",
-          "update office",
-          "secure microsoft",
-          "account security",
-          "security verification",
-          "365 suspended",
-          "office update",
-          "microsoft secure",
-          "login microsoft",
-          "microsoft login",
-          "microsoft authentication",
-          "authentication microsoft",
-          "office 365 login",
-          "365 office login"
-        ],
-        "regex": "(verify.{0,50}account|suspended.{0,50}365|update.{0,50}office|secure.{0,50}microsoft|account.{0,50}security|security.{0,50}verification|365.{0,50}suspended|office.{0,50}update|microsoft.{0,50}secure|login.{0,50}microsoft|microsoft.{0,50}login|microsoft.{0,50}authentication|authentication.{0,50}microsoft|office.{0,50}365.{0,50}login|365.{0,50}office.{0,50}login)",
-        "flags": "i"
+        "type": "multi_proximity",
+        "pairs": [
+          {"words": ["verify", "account"], "max_distance": 50},
+          {"words": ["verify", "information"], "max_distance": 50},
+          {"words": ["verify", "identity"], "max_distance": 50},
+          {"words": ["suspended", "365"], "max_distance": 50},
+          {"words": ["suspended", "account"], "max_distance": 50},
+          {"words": ["suspended", "office"], "max_distance": 50},
+          {"words": ["update", "office"], "max_distance": 50},
+          {"words": ["update", "microsoft"], "max_distance": 50},
+          {"words": ["update", "365"], "max_distance": 50},
+          {"words": ["secure", "microsoft"], "max_distance": 50},
+          {"words": ["secure", "account"], "max_distance": 50},
+          {"words": ["account", "security"], "max_distance": 50},
+          {"words": ["security", "verification"], "max_distance": 50},
+          {"words": ["security", "alert"], "max_distance": 50},
+          {"words": ["login", "microsoft"], "max_distance": 50},
+          {"words": ["microsoft", "login"], "max_distance": 50},
+          {"words": ["microsoft", "authentication"], "max_distance": 50},
+          {"words": ["authentication", "microsoft"], "max_distance": 50},
+          {"words": ["office", "365"], "max_distance": 50},
+          {"words": ["365", "login"], "max_distance": 50},
+          {"words": ["office", "login"], "max_distance": 50},
+          {"words": ["365", "suspended"], "max_distance": 50},
+          {"words": ["office", "suspended"], "max_distance": 50}
+        ]
       },
-      "pattern": "(verify.{0,50}account|suspended.{0,50}365|update.{0,50}office|secure.{0,50}microsoft|account.{0,50}security|security.{0,50}verification|365.{0,50}suspended|office.{0,50}update|microsoft.{0,50}secure|login.{0,50}microsoft|microsoft.{0,50}login|microsoft.{0,50}authentication|authentication.{0,50}microsoft|office.{0,50}365.{0,50}login|365.{0,50}office.{0,50}login)",
-      "flags": "i",
       "severity": "high",
       "description": "Common Microsoft 365 phishing keywords and variations",
       "action": "block",
       "category": "social_engineering",
-      "confidence": 0.85,
-      "additional_checks": [
-        "verify account",
-        "suspended 365",
-        "update office",
-        "secure microsoft"
-      ]
+      "confidence": 0.85
     },
     {
       "id": "phi_020_grammar_typos",
-      "pattern": "(?:verify\\s+your\\s+informations|click\\s+hear|recieve|loose\\s+access|acount|secuirty|authentification|guarentee|occured|seperate)",
-      "flags": "i",
+      "code_driven": true,
+      "code_logic": {
+        "type": "substring_count",
+        "substrings": [
+          "informations",
+          "click hear",
+          "recieve",
+          "loose access",
+          "acount",
+          "secuirty",
+          "authentification",
+          "guarentee",
+          "occured",
+          "seperate"
+        ],
+        "min_count": 2
+      },
       "severity": "medium",
-      "description": "Common grammar/spelling errors in phishing content",
+      "description": "Multiple grammar/spelling errors indicative of phishing",
       "action": "warn",
       "category": "content_quality",
       "confidence": 0.7
@@ -791,20 +1025,65 @@
     },
     {
       "id": "phi_017_microsoft_brand_abuse",
-      "pattern": "(?!.*(?:sign\\s+in\\s+with\\s+microsoft|continue\\s+with\\s+microsoft|login\\s+with\\s+microsoft|authenticate\\s+with\\s+microsoft|sso|oauth|third.?party\\s+auth|\\.auth/login/|azure\\s+static\\s+web\\s+apps|easy\\s+auth|discussion|forum|community|tutorial|guide|documentation|support|help|wiki|blog|article|how\\s+to|step\\s+by\\s+step|configure|setup|administration|management))(?:(?:microsoft|office|365).{0,750}(?:login|sign.{0,50}in|authentication)|(?:login|sign.{0,50}in|authentication).{0,750}(?:microsoft|office|365))",
-      "flags": "i",
+      "code_driven": true,
+      "code_logic": {
+        "type": "all_of",
+        "operations": [
+          {
+            "type": "multi_proximity",
+            "pairs": [
+              {
+                "words": ["microsoft", "login"],
+                "max_distance": 750
+              },
+              {
+                "words": ["office", "sign in"],
+                "max_distance": 750
+              },
+              {
+                "words": ["365", "authentication"],
+                "max_distance": 750
+              }
+            ]
+          },
+          {
+            "type": "has_but_not",
+            "required": ["login", "sign"],
+            "prohibited": [
+              "sign in with microsoft",
+              "continue with microsoft",
+              "sso",
+              "oauth",
+              ".auth/login/",
+              "easy auth",
+              "discussion",
+              "forum",
+              "tutorial",
+              "documentation"
+            ]
+          }
+        ]
+      },
       "severity": "high",
-      "description": "Microsoft branding combined with login/authentication terms on non-Microsoft domain",
+      "description": "Microsoft branding combined with authentication terms on non-Microsoft domain",
       "action": "block",
       "category": "brand_abuse",
       "confidence": 0.95
     },
     {
       "id": "phi_023_css_selection_blocking",
-      "pattern": "(?:user-select|\\-webkit\\-user\\-select|\\-moz\\-user\\-select|\\-ms\\-user\\-select)\\s*:\\s*none",
-      "flags": "i",
+      "code_driven": true,
+      "code_logic": {
+        "type": "substring_present",
+        "values": [
+          "user-select: none",
+          "-webkit-user-select: none",
+          "-moz-user-select: none",
+          "-ms-user-select: none"
+        ]
+      },
       "severity": "high",
-      "description": "CSS code prevents text selection - common anti-analysis technique used in phishing pages",
+      "description": "CSS prevents text selection - anti-analysis technique",
       "action": "block",
       "category": "anti_analysis",
       "confidence": 0.85
@@ -831,20 +1110,35 @@
     },
     {
       "id": "phi_029_fake_dead_links",
-      "pattern": "<a[^>]*href\\s*=\\s*[\"'](?:#|javascript:(?:void\\(0\\))?)[\"'][^>]*>(?:[^<]*<b><\\/b>[^<]*){2,}[^<]*<\\/a>",
-      "flags": "i",
+      "code_driven": true,
+      "code_logic": {
+        "type": "pattern_count",
+        "patterns": [
+          "<a[^>]*href\\s*=\\s*[\"'](?:#|javascript:)[\"'][^>]*>(?:[^<]*<b></b>){2,}"
+        ],
+        "flags": "i",
+        "min_count": 1
+      },
       "severity": "high",
-      "description": "Links with href='#' or 'javascript:' containing obfuscated text using <b></b> tags between letters or empty - common phishing tactic to evade detection",
+      "description": "Obfuscated links with empty tags - phishing technique",
       "action": "block",
       "category": "suspicious_structure",
       "confidence": 0.95
     },
     {
       "id": "phi_030_empty_tag_obfuscation",
-      "pattern": "(?:<b><\\/b>){5,}|(?:<i><\\/i>){5,}",
-      "flags": "i",
+      "code_driven": true,
+      "code_logic": {
+        "type": "pattern_count",
+        "patterns": [
+          "(?:<b></b>){5,}",
+          "(?:<i></i>){5,}"
+        ],
+        "flags": "i",
+        "min_count": 1
+      },
       "severity": "high",
-      "description": "Multiple <b></b> or <i></i> tags used throughout page to obfuscate text and evade keyword detection - common phishing technique",
+      "description": "Multiple empty tags used to obfuscate text",
       "action": "block",
       "category": "text_obfuscation",
       "confidence": 0.9
