@@ -477,6 +477,58 @@ if (window.checkExtensionLoaded) {
     }
   }
 
+  /**
+   * Consolidated domain trust check - single URL parse for all pattern types
+   * Optimization: Parses URL once and checks all pattern categories
+   * @param {string} url - The URL to check
+   * @returns {Object} Trust status for all categories: { isTrustedLogin, isMicrosoft, isExcluded }
+   */
+  function checkDomainTrust(url) {
+    try {
+      const urlObj = new URL(url);
+      const origin = urlObj.origin;
+      
+      return {
+        isTrustedLogin: matchesAnyPattern(origin, trustedLoginPatterns),
+        isMicrosoft: matchesAnyPattern(origin, microsoftDomainPatterns),
+        isExcluded: checkDomainExclusionByOrigin(origin)
+      };
+    } catch (error) {
+      logger.warn("Invalid URL for domain trust check:", url);
+      return { 
+        isTrustedLogin: false, 
+        isMicrosoft: false, 
+        isExcluded: false 
+      };
+    }
+  }
+
+  /**
+   * Check if origin is in exclusion system (helper for checkDomainTrust)
+   * @param {string} origin - The origin to check
+   * @returns {boolean} - True if origin is excluded
+   */
+  function checkDomainExclusionByOrigin(origin) {
+    if (detectionRules?.exclusion_system?.domain_patterns) {
+      const rulesExcluded =
+        detectionRules.exclusion_system.domain_patterns.some((pattern) => {
+          try {
+            const regex = getCachedRegex(pattern, "i");
+            return regex.test(origin);
+          } catch (error) {
+            logger.warn(`Invalid exclusion pattern: ${pattern}`);
+            return false;
+          }
+        });
+
+      if (rulesExcluded) {
+        logger.log(`✅ URL excluded by detection rules: ${origin}`);
+        return true;
+      }
+    }
+    return checkUserUrlAllowlist(origin);
+  }
+
   // Conditional logger that respects developer console logging setting
   const logger = {
     log: (...args) => {
@@ -1067,7 +1119,8 @@ if (window.checkExtensionLoaded) {
     console.log("Is Trusted Domain:", isTrusted);
 
     // Check M365 detection
-    const isMSLogon = isMicrosoftLogonPage();
+    const msDetection = detectMicrosoftElements();
+    const isMSLogon = msDetection.isLogonPage;
     console.log("Detected as M365 Login:", isMSLogon);
 
     // Run phishing indicators
@@ -1154,33 +1207,57 @@ if (window.checkExtensionLoaded) {
   };
 
   /**
-   * Check if page has ANY Microsoft-related elements (lower threshold than full detection)
-   * Used to determine if phishing indicators should be checked
+   * Unified Microsoft element detection with rich results
+   * Optimization: Single scan that calculates both logon page and element presence
+   * @returns {Object} Detection results: { isLogonPage, hasElements, primaryFound, totalWeight, totalElements, foundElements }
    */
-  function hasMicrosoftElements() {
+  function detectMicrosoftElements() {
     try {
+      // Check domain exclusion first
       const isExcludedDomain = checkDomainExclusion(window.location.href);
       if (isExcludedDomain) {
         logger.log(
           `✅ Domain excluded from scanning - skipping Microsoft elements check: ${window.location.href}`
         );
-        return false;
+        return {
+          isLogonPage: false,
+          hasElements: false,
+          primaryFound: 0,
+          totalWeight: 0,
+          totalElements: 0,
+          foundElements: [],
+          pageSource: null
+        };
       }
 
       if (!detectionRules?.m365_detection_requirements) {
-        return false;
+        logger.error("No M365 detection requirements in rules");
+        return {
+          isLogonPage: false,
+          hasElements: false,
+          primaryFound: 0,
+          totalWeight: 0,
+          totalElements: 0,
+          foundElements: [],
+          pageSource: null
+        };
       }
 
       const requirements = detectionRules.m365_detection_requirements;
       const pageSource = getPageSource();
       const pageText = document.body?.textContent || "";
-      
       const pageTitle = document.title || "";
       const metaTags = Array.from(document.querySelectorAll('meta'));
 
+      // Store the page source for debugging purposes
+      lastScannedPageSource = pageSource;
+      lastPageSourceScanTime = Date.now();
+
+      let primaryFound = 0;
       let totalWeight = 0;
       let totalElements = 0;
-      const foundPrimaryElements = []; // Track primary elements in main loop
+      const foundElementsList = [];
+      const missingElementsList = [];
 
       const allElements = [
         ...(requirements.primary_elements || []),
@@ -1200,154 +1277,16 @@ if (window.checkExtensionLoaded) {
               const regex = new RegExp(pattern, "i");
               return regex.test(pageTitle);
             });
-          } else if (element.type === "meta_tag") {
-            const metaAttr = element.attribute;
-            
-            found = metaTags.some(meta => {
-              let content = "";
-              
-              if (metaAttr === "description") {
-                content = meta.getAttribute("name") === "description" 
-                  ? meta.getAttribute("content") || ""
-                  : "";
-              } else if (metaAttr.startsWith("og:")) {
-                content = meta.getAttribute("property") === metaAttr
-                  ? meta.getAttribute("content") || ""
-                  : "";
-              } else {
-                content = meta.getAttribute("name") === metaAttr
-                  ? meta.getAttribute("content") || ""
-                  : "";
-              }
-              
-              if (content) {
-                return element.patterns.some(pattern => {
-                  const regex = new RegExp(pattern, "i");
-                  return regex.test(content);
-                });
-              }
-              return false;
-            });
-          } else if (element.type === "css_pattern") {
-            found = element.patterns.some((pattern) => {
-              const regex = new RegExp(pattern, "i");
-              return regex.test(pageSource);
-            });
-          } else if (element.type === "url_pattern") {
-            found = element.patterns.some((pattern) => {
-              const regex = new RegExp(pattern, "i");
-              return regex.test(window.location.href);
-            });
-          } else if (element.type === "text_content") {
-            found = element.patterns.some((pattern) => {
-              const regex = new RegExp(pattern, "i");
-              return regex.test(pageText);
-            });
-          }
-
-          if (found) {
-            totalWeight += element.weight || 1;
-            totalElements++;
-            
-            // Track primary elements
-            if (element.category === "primary") {
-              foundPrimaryElements.push(element.id);
-            }
-          }
-        } catch (error) {
-          logger.warn(`Error checking element ${element.category}:`, error);
-        }
-      }
-
-      const hasElements =
-        foundPrimaryElements.length > 0 ||
-        totalWeight >= 4 ||
-        (totalElements >= 3 && totalWeight >= 3);
-
-      if (hasElements) {
-        if (foundPrimaryElements.length > 0) {
-          logger.log(
-            `🔍 Microsoft-specific elements detected (Primary: ${foundPrimaryElements.join(
-              ", "
-            )}) - will check phishing indicators`
-          );
-        } else {
-          logger.log(
-            `🔍 High-confidence Microsoft elements detected (Weight: ${totalWeight}, Elements: ${totalElements}) - will check phishing indicators`
-          );
-        }
-      } else {
-        logger.log(
-          `📄 Insufficient Microsoft indicators (Weight: ${totalWeight}, Elements: ${totalElements}, Primary: ${foundPrimaryElements.length}) - skipping phishing indicators for performance`
-        );
-      }
-
-      return hasElements;
-    } catch (error) {
-      logger.error("Error in hasMicrosoftElements:", error.message);
-      return true;
-    }
-  }
-
-  /**
-   * Check if page is Microsoft 365 logon page using categorized detection
-   * Requirements: Primary elements are Microsoft-specific, secondary are supporting evidence
-   */
-  function isMicrosoftLogonPage() {
-    try {
-      if (!detectionRules?.m365_detection_requirements) {
-        logger.error("No M365 detection requirements in rules");
-        return false;
-      }
-
-      const requirements = detectionRules.m365_detection_requirements;
-      const pageSource = getPageSource();
-
-      // Store the page source for debugging purposes
-      lastScannedPageSource = pageSource;
-      lastPageSourceScanTime = Date.now();
-
-      let primaryFound = 0;
-      let totalWeight = 0;
-      let totalElements = 0;
-      const foundElementsList = [];
-      const missingElementsList = [];
-
-      // Get page title and meta tags once
-      const pageTitle = document.title || "";
-      const metaTags = Array.from(document.querySelectorAll('meta'));
-
-      // Check primary elements (Microsoft-specific)
-      const allElements = [
-        ...(requirements.primary_elements || []),
-        ...(requirements.secondary_elements || []),
-      ];
-
-      for (const element of allElements) {
-        try {
-          let found = false;
-
-          if (element.type === "source_content") {
-            const regex = new RegExp(element.pattern, "i");
-            found = regex.test(pageSource);
-          } else if (element.type === "page_title") {
-            // NEW: Check page title against patterns
-            found = element.patterns.some((pattern) => {
-              const regex = new RegExp(pattern, "i");
-              return regex.test(pageTitle);
-            });
             
             if (found) {
               logger.debug(`✓ Page title matched: "${pageTitle}"`);
             }
           } else if (element.type === "meta_tag") {
-            // NEW: Check meta tags
             const metaAttr = element.attribute;
             
             found = metaTags.some(meta => {
               let content = "";
               
-              // Handle different meta tag types
               if (metaAttr === "description") {
                 content = meta.getAttribute("name") === "description" 
                   ? meta.getAttribute("content") || ""
@@ -1375,7 +1314,6 @@ if (window.checkExtensionLoaded) {
               logger.debug(`✓ Meta tag matched: ${metaAttr}`);
             }
           } else if (element.type === "css_pattern") {
-            // Check for CSS patterns in the page source
             found = element.patterns.some((pattern) => {
               const regex = new RegExp(pattern, "i");
               return regex.test(pageSource);
@@ -1411,6 +1349,16 @@ if (window.checkExtensionLoaded) {
                 );
               }
             }
+          } else if (element.type === "url_pattern") {
+            found = element.patterns.some((pattern) => {
+              const regex = new RegExp(pattern, "i");
+              return regex.test(window.location.href);
+            });
+          } else if (element.type === "text_content") {
+            found = element.patterns.some((pattern) => {
+              const regex = new RegExp(pattern, "i");
+              return regex.test(pageText);
+            });
           }
 
           if (found) {
@@ -1442,6 +1390,7 @@ if (window.checkExtensionLoaded) {
         }
       }
 
+      // Calculate thresholds for logon page detection (strict)
       const thresholds = requirements.detection_thresholds || {};
       const minPrimary = thresholds.minimum_primary_elements || 1;
       const minWeight = thresholds.minimum_total_weight || 4;
@@ -1449,81 +1398,83 @@ if (window.checkExtensionLoaded) {
       const minSecondaryOnlyWeight = thresholds.minimum_secondary_only_weight || 9;
       const minSecondaryOnlyElements = thresholds.minimum_secondary_only_elements || 7;
 
-      let isM365Page = false;
+      let isLogonPage = false;
 
       if (primaryFound > 0) {
-        isM365Page =
+        isLogonPage =
           primaryFound >= minPrimary &&
           totalWeight >= minWeight &&
           totalElements >= minTotal;
       } else {
-        isM365Page =
+        isLogonPage =
           totalWeight >= minSecondaryOnlyWeight &&
           totalElements >= minSecondaryOnlyElements;
       }
 
-      if (primaryFound > 0) {
-        logger.log(
-          `M365 logon detection (with primary): Primary=${primaryFound}/${minPrimary}, Weight=${totalWeight}/${minWeight}, Total=${totalElements}/${minTotal}`
-        );
-      } else {
-        logger.log(
-          `M365 logon detection (secondary only): Weight=${totalWeight}/${minSecondaryOnlyWeight}, Total=${totalElements}/${minSecondaryOnlyElements}`
-        );
-      }
-      logger.log(`Found elements: [${foundElementsList.join(", ")}]`);
-      if (missingElementsList.length > 0) {
-        logger.log(`Missing elements: [${missingElementsList.join(", ")}]`);
-      }
+      // Calculate hasElements (looser threshold for element presence)
+      const hasElements =
+        primaryFound > 0 ||
+        totalWeight >= 4 ||
+        (totalElements >= 3 && totalWeight >= 3);
 
-      // Enhanced debugging - show what we're actually looking for
-      logger.debug("=== DETECTION DEBUG INFO ===");
-      logger.debug(`Page URL: ${window.location.href}`);
-      logger.debug(`Page title: ${document.title}`);
-      logger.debug(`Page source length: ${pageSource.length} chars`);
-
-      // Debug each pattern individually
-      for (const element of allElements) {
-        if (element.type === "source_content") {
-          const regex = new RegExp(element.pattern, "i");
-          const matches = pageSource.match(regex);
-          logger.debug(
-            `${element.category} pattern "${element.pattern}" -> ${
-              matches ? "FOUND" : "NOT FOUND"
-            }`
+      // Logging
+      if (isLogonPage) {
+        if (primaryFound > 0) {
+          logger.log(
+            `M365 logon detection (with primary): Primary=${primaryFound}/${minPrimary}, Weight=${totalWeight}/${minWeight}, Total=${totalElements}/${minTotal}`
           );
-          if (matches) logger.debug(`  Match: "${matches[0]}"`);
-        } else if (element.type === "css_pattern") {
-          element.patterns.forEach((pattern, idx) => {
-            const regex = new RegExp(pattern, "i");
-            const matches = pageSource.match(regex);
-            logger.debug(
-              `${element.category} CSS pattern[${idx}] "${pattern}" -> ${
-                matches ? "FOUND" : "NOT FOUND"
-              }`
-            );
-            if (matches) logger.debug(`  Match: "${matches[0]}"`);
-          });
+        } else {
+          logger.log(
+            `M365 logon detection (secondary only): Weight=${totalWeight}/${minSecondaryOnlyWeight}, Total=${totalElements}/${minSecondaryOnlyElements}`
+          );
         }
-      }
-      logger.debug("=== END DEBUG INFO ===");
-
-      const resultMessage = isM365Page
-        ? "✅ DETECTED as Microsoft 365 logon page"
-        : "❌ NOT DETECTED as Microsoft 365 logon page";
-
-      logger.log(`🎯 Detection Result: ${resultMessage}`);
-
-      if (isM365Page) {
+        logger.log(`Found elements: [${foundElementsList.join(", ")}]`);
+        if (missingElementsList.length > 0) {
+          logger.log(`Missing elements: [${missingElementsList.join(", ")}]`);
+        }
+        logger.log(`🎯 Detection Result: ✅ DETECTED as Microsoft 365 logon page`);
         logger.log(
           "📋 Next step: Analyzing if this is legitimate or phishing attempt..."
         );
+      } else if (hasElements) {
+        if (primaryFound > 0) {
+          logger.log(
+            `🔍 Microsoft-specific elements detected (Primary: ${foundElementsList.filter(id => {
+              const elem = allElements.find(e => e.id === id);
+              return elem?.category === "primary";
+            }).join(", ")}) - will check phishing indicators`
+          );
+        } else {
+          logger.log(
+            `🔍 High-confidence Microsoft elements detected (Weight: ${totalWeight}, Elements: ${totalElements}) - will check phishing indicators`
+          );
+        }
+      } else {
+        logger.log(
+          `📄 Insufficient Microsoft indicators (Weight: ${totalWeight}, Elements: ${totalElements}, Primary: ${primaryFound}) - skipping phishing indicators for performance`
+        );
       }
 
-      return isM365Page;
+      return {
+        isLogonPage,
+        hasElements,
+        primaryFound,
+        totalWeight,
+        totalElements,
+        foundElements: foundElementsList,
+        pageSource
+      };
     } catch (error) {
-      logger.error("M365 logon page detection failed:", error.message);
-      return false; // Fail closed - don't assume it's MS page if detection fails
+      logger.error("Error in detectMicrosoftElements:", error.message);
+      return {
+        isLogonPage: false,
+        hasElements: true, // Fail open for element detection
+        primaryFound: 0,
+        totalWeight: 0,
+        totalElements: 0,
+        foundElements: [],
+        pageSource: null
+      };
     }
   }
 
@@ -2882,26 +2833,14 @@ if (window.checkExtensionLoaded) {
    * Now includes both detection rules exclusions AND user-configured URL allowlist
    */
   function checkDomainExclusion(url) {
-    const urlObj = new URL(url);
-    const origin = urlObj.origin;
-    if (detectionRules?.exclusion_system?.domain_patterns) {
-      const rulesExcluded =
-        detectionRules.exclusion_system.domain_patterns.some((pattern) => {
-          try {
-            const regex = new RegExp(pattern, "i");
-            return regex.test(origin);
-          } catch (error) {
-            logger.warn(`Invalid exclusion pattern: ${pattern}`);
-            return false;
-          }
-        });
-
-      if (rulesExcluded) {
-        logger.log(`✅ URL excluded by detection rules: ${origin}`);
-        return true;
-      }
+    try {
+      const urlObj = new URL(url);
+      const origin = urlObj.origin;
+      return checkDomainExclusionByOrigin(origin);
+    } catch (error) {
+      logger.warn("Invalid URL for domain exclusion check:", url);
+      return false;
     }
-    return checkUserUrlAllowlist(origin);
   }
 
   /**
@@ -3452,19 +3391,22 @@ if (window.checkExtensionLoaded) {
       // Step 2: FIRST CHECK - trusted origins and Microsoft domains
       const currentOrigin = location.origin.toLowerCase();
 
+      // Optimization: Single consolidated domain trust check (parses URL once)
+      const domainTrust = checkDomainTrust(window.location.href);
+
       // Debug logging for domain detection
       logger.debug(`Checking origin: "${currentOrigin}"`);
       logger.debug(`Trusted login patterns:`, trustedLoginPatterns);
       logger.debug(`Microsoft domain patterns:`, microsoftDomainPatterns);
       logger.debug(
-        `Is trusted login domain: ${isTrustedLoginDomain(window.location.href)}`
+        `Is trusted login domain: ${domainTrust.isTrustedLogin}`
       );
       logger.debug(
-        `Is Microsoft domain: ${isMicrosoftDomain(window.location.href)}`
+        `Is Microsoft domain: ${domainTrust.isMicrosoft}`
       );
 
       // Check for trusted login domains (these get valid badges)
-      if (isTrustedLoginDomain(window.location.href)) {
+      if (domainTrust.isTrustedLogin) {
         logger.log(
           "✅ TRUSTED ORIGIN - No phishing possible, exiting immediately"
         );
@@ -3643,7 +3585,7 @@ if (window.checkExtensionLoaded) {
       }
 
       // Check for general Microsoft domains (non-login pages)
-      if (isMicrosoftDomain(window.location.href)) {
+      if (domainTrust.isMicrosoft) {
         logger.log(
           "ℹ️ MICROSOFT DOMAIN (NON-LOGIN) - No phishing scan needed, no badge shown"
         );
@@ -3666,8 +3608,7 @@ if (window.checkExtensionLoaded) {
       }
 
       // Step 3: Check for domain exclusion (trusted domains) - same level as Microsoft domains
-      const isExcludedDomain = checkDomainExclusion(window.location.href);
-      if (isExcludedDomain) {
+      if (domainTrust.isExcluded) {
         logger.log(
           `✅ EXCLUDED TRUSTED DOMAIN - No scanning needed, exiting immediately`
         );
@@ -3714,12 +3655,10 @@ if (window.checkExtensionLoaded) {
       );
 
       // Step 5: Check if page is an MS logon page (using rule file requirements)
-      const isMSLogon = isMicrosoftLogonPage();
-      if (!isMSLogon) {
+      const msDetection = detectMicrosoftElements();
+      if (!msDetection.isLogonPage) {
         // Check if page has ANY Microsoft-related elements before running expensive phishing indicators
-        const hasMSElements = hasMicrosoftElements();
-
-        if (!hasMSElements) {
+        if (!msDetection.hasElements) {
           logger.log(
             "✅ Page analysis result: Site appears legitimate (not Microsoft-related, no phishing indicators checked)"
           );
