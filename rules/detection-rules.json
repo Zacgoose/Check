@@ -244,14 +244,6 @@
         "description": "Login form input field (email/text/tel type) with placeholder attribute",
         "weight": 1,
         "category": "secondary"
-      },
-      {
-        "id": "submit_button_signin",
-        "type": "source_content",
-        "pattern": "<(?:button|input)[^>]*(?:type=[\"']submit[\"']|role=[\"']button[\"'])[^>]*>.*(?:sign\\s*in|log\\s*in|next)",
-        "description": "Submit button with sign-in/login text",
-        "weight": 1,
-        "category": "secondary"
       }
     ],
     "detection_thresholds": {
