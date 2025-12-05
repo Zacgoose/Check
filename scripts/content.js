@@ -1024,18 +1024,39 @@ if (window.checkExtensionLoaded) {
         timestamp: Date.now(),
         debugData: debugData,
       };
-      await new Promise((resolve, reject) => {
+      
+      // Use Promise.race with 100ms timeout to avoid blocking phishing page redirect
+      // This ensures user protection is prioritized while still attempting to store debug data
+      const storagePromise = new Promise((resolve, reject) => {
         chrome.storage.local.set({ [storageKey]: dataToStore }, () => {
           if (chrome.runtime.lastError) {
+            console.error("Storage error:", chrome.runtime.lastError.message);
             reject(chrome.runtime.lastError);
           } else {
-            console.log("Debug data stored before redirect:", storageKey);
-            resolve();
+            console.log("Debug data stored successfully:", storageKey);
+            resolve(true);
           }
         });
       });
+      
+      const timeoutPromise = new Promise((resolve) => {
+        setTimeout(() => {
+          console.warn("Debug data storage timeout (100ms) - proceeding with block for user safety");
+          resolve(false);
+        }, 100);
+      });
+      
+      const completed = await Promise.race([storagePromise, timeoutPromise]);
+      
+      // If timeout was reached, continue storage in background (fire-and-forget)
+      if (completed === false) {
+        storagePromise.catch((err) => {
+          console.error("Background storage failed:", err.message);
+        });
+      }
     } catch (error) {
       console.error("Failed to store debug data before redirect:", error);
+      // Continue with redirect even if storage fails - user protection is priority
     }
   }
 
