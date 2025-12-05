@@ -126,6 +126,59 @@
     ],
     "secondary_elements": [
       {
+        "id": "page_title_microsoft",
+        "type": "page_title",
+        "patterns": [
+          "microsoft\\s*365",
+          "office\\s*365",
+          "microsoft.*sign\\s*in",
+          "sign\\s*in.*microsoft",
+          "microsoft.*login",
+          "login.*microsoft",
+          "microsoft\\s*account",
+          "azure.*sign\\s*in",
+          "office.*sign\\s*in"
+        ],
+        "description": "Page title contains Microsoft branding with sign-in/login keywords",
+        "weight": 3,
+        "category": "secondary"
+      },
+      {
+        "id": "meta_description_microsoft",
+        "type": "meta_tag",
+        "attribute": "description",
+        "patterns": [
+          "microsoft\\s*365",
+          "office\\s*365",
+          "sign\\s*in.*microsoft",
+          "microsoft.*sign\\s*in"
+        ],
+        "description": "Meta description contains Microsoft branding",
+        "weight": 2,
+        "category": "secondary"
+      },
+      {
+        "id": "meta_og_title_microsoft",
+        "type": "meta_tag",
+        "attribute": "og:title",
+        "patterns": [
+          "microsoft",
+          "office\\s*365",
+          "azure"
+        ],
+        "description": "Open Graph title contains Microsoft branding",
+        "weight": 2,
+        "category": "secondary"
+      },
+      {
+        "id": "favicon_microsoft",
+        "type": "source_content",
+        "pattern": "(?:favicon|icon).*(?:microsoft|msft|m365|office)",
+        "description": "Favicon references Microsoft branding",
+        "weight": 1,
+        "category": "secondary"
+      },
+      {
         "id": "ms_form_dimensions",
         "type": "css_pattern",
         "patterns": [
@@ -191,14 +244,22 @@
         "description": "Login form input field (email/text/tel type) with placeholder attribute",
         "weight": 1,
         "category": "secondary"
+      },
+      {
+        "id": "submit_button_signin",
+        "type": "source_content",
+        "pattern": "<(?:button|input)[^>]*(?:type=[\"']submit[\"']|role=[\"']button[\"'])[^>]*>.*(?:sign\\s*in|log\\s*in|next)",
+        "description": "Submit button with sign-in/login text",
+        "weight": 1,
+        "category": "secondary"
       }
     ],
     "detection_thresholds": {
       "minimum_primary_elements": 1,
       "minimum_total_weight": 4,
       "minimum_elements_overall": 3,
-      "minimum_secondary_only_weight": 9,
-      "minimum_secondary_only_elements": 7
+      "minimum_secondary_only_weight": 6,
+      "minimum_secondary_only_elements": 4
     },
     "legacy_minimum_required": 4,
     "legacy_all_must_be_present": false

@@ -1303,6 +1303,10 @@ if (window.checkExtensionLoaded) {
       const foundElementsList = [];
       const missingElementsList = [];
 
+      // Get page title and meta tags once
+      const pageTitle = document.title || "";
+      const metaTags = Array.from(document.querySelectorAll('meta'));
+
       // Check primary elements (Microsoft-specific)
       const allElements = [
         ...(requirements.primary_elements || []),
@@ -1316,6 +1320,50 @@ if (window.checkExtensionLoaded) {
           if (element.type === "source_content") {
             const regex = new RegExp(element.pattern, "i");
             found = regex.test(pageSource);
+          } else if (element.type === "page_title") {
+            // NEW: Check page title against patterns
+            found = element.patterns.some((pattern) => {
+              const regex = new RegExp(pattern, "i");
+              return regex.test(pageTitle);
+            });
+            
+            if (found) {
+              logger.debug(`✓ Page title matched: "${pageTitle}"`);
+            }
+          } else if (element.type === "meta_tag") {
+            // NEW: Check meta tags
+            const metaAttr = element.attribute;
+            
+            found = metaTags.some(meta => {
+              let content = "";
+              
+              // Handle different meta tag types
+              if (metaAttr === "description") {
+                content = meta.getAttribute("name") === "description" 
+                  ? meta.getAttribute("content") || ""
+                  : "";
+              } else if (metaAttr.startsWith("og:")) {
+                content = meta.getAttribute("property") === metaAttr
+                  ? meta.getAttribute("content") || ""
+                  : "";
+              } else {
+                content = meta.getAttribute("name") === metaAttr
+                  ? meta.getAttribute("content") || ""
+                  : "";
+              }
+              
+              if (content) {
+                return element.patterns.some(pattern => {
+                  const regex = new RegExp(pattern, "i");
+                  return regex.test(content);
+                });
+              }
+              return false;
+            });
+            
+            if (found) {
+              logger.debug(`✓ Meta tag matched: ${metaAttr}`);
+            }
           } else if (element.type === "css_pattern") {
             // Check for CSS patterns in the page source
             found = element.patterns.some((pattern) => {
@@ -1384,27 +1432,23 @@ if (window.checkExtensionLoaded) {
         }
       }
 
-      // New categorized detection logic with flexible thresholds
+      // Rest of your existing detection logic...
       const thresholds = requirements.detection_thresholds || {};
       const minPrimary = thresholds.minimum_primary_elements || 1;
       const minWeight = thresholds.minimum_total_weight || 4;
       const minTotal = thresholds.minimum_elements_overall || 3;
-      const minSecondaryOnlyWeight =
-        thresholds.minimum_secondary_only_weight || 6;
-      const minSecondaryOnlyElements =
-        thresholds.minimum_secondary_only_elements || 5;
+      const minSecondaryOnlyWeight = thresholds.minimum_secondary_only_weight || 6;
+      const minSecondaryOnlyElements = thresholds.minimum_secondary_only_elements || 5;
 
       let isM365Page = false;
 
       if (primaryFound > 0) {
-        // If we have primary elements, use normal thresholds
         isM365Page =
           primaryFound >= minPrimary &&
           totalWeight >= minWeight &&
           totalElements >= minTotal;
       } else {
-        // If NO primary elements, require higher secondary evidence
-        // This catches phishing simulations while preventing false positives like GitHub
+        // Lower thresholds since we added high-value secondary indicators (page title = 3 weight)
         isM365Page =
           totalWeight >= minSecondaryOnlyWeight &&
           totalElements >= minSecondaryOnlyElements;
