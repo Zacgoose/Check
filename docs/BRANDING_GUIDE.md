@@ -29,7 +29,7 @@ You can customize the following properties:
 
 Your branding will be immediately applied to all components.
 
-### Method 2: Group Policy (GPO)
+### Method 2: Group Policy (GPO with Chrome & Edge)
 
 For enterprise deployments using Windows Group Policy:
 
@@ -83,7 +83,7 @@ For Chrome Enterprise customers:
 4. Add the branding configuration under "Policy for extensions"
 5. Save and publish the policy
 
-### Method 5: Windows Registry (Advanced)
+### Method 5: Windows Registry (Advanced with Chrome & Edge)
 
 For direct registry configuration:
 
