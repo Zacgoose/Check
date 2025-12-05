@@ -99,7 +99,26 @@ function showWarningBanner(reason, analysisData) {
     if (supportEmail) {
       const contactLink = document.createElement("a");
       contactLink.textContent = "Report as clean/safe";
-      contactLink.href = `mailto:${supportEmail}...`;
+      // Initial mailto link - click handler dynamically updates with full details
+      contactLink.href = `mailto:${supportEmail}?subject=${encodeURIComponent(
+        "Security Review: Possible Clean/Safe Page"
+      )}`;
+      contactLink.addEventListener("click", (e) => {
+        // Build detailed email body with detection information
+        const subject = `Security Review: Mark Clean - ${location.hostname}`;
+        const body = encodeURIComponent(
+          `Security Review Request: Possible Clean/Safe Page\n\n` +
+          `Page URL: ${location.href}\n` +
+          `Hostname: ${location.hostname}\n` +
+          `Timestamp (UTC): ${new Date().toISOString()}\n` +
+          `Banner Title: ${bannerTitle}\n` +
+          `Displayed Reason: ${reason}\n` +
+          `Detection Score: ${analysisData.score}/${analysisData.threshold}\n\n` +
+          `Detected Indicators:\n${extractPhishingIndicators(analysisData)}\n\n` +
+          `User Justification:\n[Explain why this page is safe]`
+        );
+        e.currentTarget.href = `mailto:${supportEmail}?subject=${encodeURIComponent(subject)}&body=${body}`;
+      });
     }
   };
   
@@ -137,9 +156,20 @@ async function loadBranding() {
       customLogo.src = branding.logoUrl;
     }
     
-    // Apply primary color
+    // Apply primary color to UI elements
     if (branding.primaryColor) {
-      // Apply to UI elements
+      const style = document.createElement("style");
+      style.textContent = `
+        :root {
+          --primary-color: ${branding.primaryColor} !important;
+          --primary-hover: ${branding.primaryColor}dd !important;
+        }
+        .icon { background: ${branding.primaryColor} !important; }
+        h1 { color: ${branding.primaryColor} !important; }
+        .btn-primary { background: ${branding.primaryColor} !important; }
+        .btn-primary:hover { background: ${branding.primaryColor}dd !important; }
+      `;
+      document.head.appendChild(style);
     }
     
     // Show/hide contact button based on support email
@@ -235,7 +265,9 @@ All user-facing components use the same branding configuration:
 | Blocked Page | ✅ Yes | `ConfigManager.getFinalBrandingConfig()` |
 | Extension Popup | ✅ Yes | `chrome.storage.local.brandingConfig` |
 | Options Page | ✅ Yes | `chrome.storage.local.brandingConfig` |
-| Valid Badge | ⚠️ Partial | Static (no logo/company name) |
+| Valid Badge | ⚠️ Static | No branding applied (shows "Verified Microsoft Domain" only) |
+
+**Note:** The Valid Badge is intentionally static with no branding because it appears on legitimate Microsoft domains where branding would be redundant or confusing. It only shows a simple "Verified Microsoft Domain" message to confirm authenticity.
 
 ## Code References
 
