@@ -199,7 +199,7 @@
           "border:\\s*1px\\s+solid\\s+#0067b8"
         ],
         "description": "Microsoft specific button styling (supporting evidence only)",
-        "weight": 1,
+        "weight": 1.5,
         "category": "secondary"
       },
       {
@@ -234,7 +234,7 @@
         "type": "source_content",
         "pattern": "<input[^>]*(?:type=[\"']password[\"']|name=[\"']password[\"']|id=[\"'][^\"']*password[^\"']*[\"'])[^>]*>",
         "description": "Password input field present on page (supporting evidence only)",
-        "weight": 1,
+        "weight": 0.5,
         "category": "secondary"
       },
       {
@@ -242,6 +242,14 @@
         "type": "source_content",
         "pattern": "<input[^>]*type=[\"'](?:email|text|tel)[\"'][^>]*(?:placeholder=[\"'][^\"']+[\"'][^>]*|[^>]*)>",
         "description": "Login form input field (email/text/tel type) with placeholder attribute",
+        "weight": 0.5,
+        "category": "secondary"
+      },
+      {
+        "id": "ms_login_placeholder_text",
+        "type": "source_content",
+        "pattern": "(?:Email,\\s*phone,?\\s*or\\s*Skype|Enter\\s+your\\s+email,\\s*phone,?\\s*or\\s*Skype|someone@example\\.com|example@example\\.com)",
+        "description": "Microsoft login placeholder text patterns - highly specific to Microsoft login pages",
         "weight": 1,
         "category": "secondary"
       }
