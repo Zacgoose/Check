@@ -1051,11 +1051,11 @@ if (window.checkExtensionLoaded) {
       // If timeout was reached, continue storage in background (fire-and-forget)
       if (completed === false) {
         storagePromise.catch((err) => {
-          console.error("Background storage failed:", err.message);
+          console.error("Background storage failed:", err?.message || String(err));
         });
       }
     } catch (error) {
-      console.error("Failed to store debug data before redirect:", error);
+      console.error("Failed to store debug data before redirect:", error?.message || String(error));
       // Continue with redirect even if storage fails - user protection is priority
     }
   }
