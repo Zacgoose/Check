@@ -383,7 +383,7 @@ runProtection() Entry
 │ Phishing pages often load malicious content gradually:      │
 │ • Initial page may look clean                               │
 │ • JavaScript injects credential forms later                 │
-│ • External resources load asynchro nously                    │
+│ • External resources load asynchronously                    │
 │                                                              │
 │ Progressive delays give content time to load while          │
 │ still detecting threats quickly.                            │
