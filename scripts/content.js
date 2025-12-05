@@ -1252,8 +1252,8 @@ if (window.checkExtensionLoaded) {
 
       // Use same thresholds as isMicrosoftLogonPage
       const thresholds = requirements.detection_thresholds || {};
-      const minWeight = thresholds.minimum_total_weight || 4;
-      const minElements = thresholds.minimum_elements_overall || 3;
+      const minWeight = thresholds.minimum_secondary_only_weight || 9;
+      const minElements = thresholds.minimum_secondary_only_elements || 7;
 
       const hasElements = totalWeight >= minWeight || totalElements >= minElements;
 
@@ -1443,7 +1443,6 @@ if (window.checkExtensionLoaded) {
           totalWeight >= minWeight &&
           totalElements >= minTotal;
       } else {
-        // Lower thresholds since we added high-value secondary indicators (page title = 3 weight)
         isM365Page =
           totalWeight >= minSecondaryOnlyWeight &&
           totalElements >= minSecondaryOnlyElements;
