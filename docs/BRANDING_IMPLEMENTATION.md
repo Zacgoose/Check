@@ -4,6 +4,8 @@
 
 This document explains how branding is applied across all user-facing components in the Check extension, including the suspicious login banner, blocked page, and extension UI.
 
+**Note:** Code examples in this document are simplified for clarity and educational purposes. They show the core logic and key concepts while omitting error handling, edge cases, and implementation details. For the complete, production-ready code, refer to the actual source files referenced in the "Code References" section.
+
 ## Problem Statement
 
 > Does the suspicious login banner have branding applied from the custom branding config or is it statically configured? The blocked page and app takes branding from the config which the user can apply manually or via various methods like policy, reg...
@@ -245,15 +247,25 @@ HKLM\Software\Policies\Google\Chrome\3rdparty\extensions\[extension-id]\customBr
 
 ### Method 5: Configuration File
 
-Default fallback branding in `config/branding.json`:
+Default fallback branding in `config/branding.json` (actual structure):
 ```json
 {
   "companyName": "CyberDrain",
   "productName": "Check",
-  "logoUrl": "images/icon48.png",
-  "primaryColor": "#F77F00"
+  "branding": {
+    "primaryColor": "#F77F00",
+    "primaryHover": "#E56F00"
+  },
+  "assets": {
+    "logoUrl": "images/icon48.png"
+  },
+  "customization": {
+    "showCompanyBranding": true
+  }
 }
 ```
+
+**Note:** The actual `branding.json` file contains many more properties. See the complete file at `config/branding.json` for all available options.
 
 ## Consistency Across Components
 
@@ -274,7 +286,8 @@ All user-facing components use the same branding configuration:
 ### Suspicious Login Banner Branding
 - **File:** `scripts/content.js`
 - **Function:** `showWarningBanner()` (lines 5262-5565)
-- **Fetch Branding:** Lines 5268-5277
+- **Fetch Branding:** Function definition at lines 5268-5277 (returns Promise)
+- **Apply Branding:** Function definition at lines 5345-5459 (applies logo, name, email)
 - **Apply Branding:** Lines 5345-5459
 
 ### Blocked Page Branding
