@@ -41,7 +41,7 @@ Thanks for taking the time to contribute! These guidelines help keep contributio
   - Content scripts inject and execute as expected.
   - Options and popup pages function correctly.
 - **Test in both Chrome and Firefox** to ensure cross-browser compatibility.
-- Use the [Firefox Testing Guide](docs/firefox-testing-guide.md) for comprehensive Firefox testing.
+- See [Firefox Support Guide](docs/firefox-support.md) for Firefox testing instructions.
 - Include a brief summary of manual testing in your pull request, noting which browsers were tested.
 
 ## Scripted Deployment Updates

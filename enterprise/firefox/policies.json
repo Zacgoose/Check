@@ -38,8 +38,12 @@
           },
           "genericWebhook": {
             "enabled": false,
-            "url": "",
-            "events": []
+            "url": "https://webhook.example.com/endpoint",
+            "events": [
+              "detection_alert",
+              "page_blocked",
+              "threat_detected"
+            ]
           }
         }
       }
