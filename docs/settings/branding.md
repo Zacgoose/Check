@@ -325,7 +325,3 @@ Logo URL: https://assets.globalmfg.com/security/gmi-logo-48.png
 ### Chrome/Edge Documentation
 - [Chrome/Edge Deployment](../deployment/chrome-edge-deployment-instructions/README.md)
 - Schema: `config/managed_schema.json`
-
-## Support
-
-For additional help with branding configuration, contact your IT administrator or refer to your organization's deployment documentation.
