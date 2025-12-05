@@ -107,8 +107,12 @@ Create or modify `policies.json` based on the template in `enterprise/firefox/po
           },
           "genericWebhook": {
             "enabled": false,
-            "url": "",
-            "events": []
+            "url": "https://webhook.example.com/endpoint",
+            "events": [
+              "detection_alert",
+              "page_blocked",
+              "threat_detected"
+            ]
           }
         }
       }
@@ -340,6 +344,35 @@ All Check configuration options are available through the `3rdparty.Extensions` 
   }
 }
 ```
+
+### Generic Webhook
+
+Configure a webhook to receive detection events:
+
+```json
+{
+  "genericWebhook": {
+    "enabled": true,
+    "url": "https://webhook.example.com/endpoint",
+    "events": [
+      "detection_alert",
+      "page_blocked",
+      "threat_detected",
+      "rogue_app_detected"
+    ]
+  }
+}
+```
+
+**Available Event Types:**
+- `detection_alert` - General phishing detection events
+- `false_positive_report` - User-submitted false positive reports
+- `page_blocked` - Page blocking events
+- `rogue_app_detected` - OAuth rogue application detection
+- `threat_detected` - General threat detection events
+- `validation_event` - Legitimate page validation events
+
+For webhook payload schema and implementation details, see the [Webhook Documentation](../webhooks.md).
 
 For all available options, see `config/managed_schema.json` in the repository.
 

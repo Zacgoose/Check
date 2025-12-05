@@ -119,6 +119,15 @@ Firefox uses the `3rdparty` section in `policies.json` to configure extension se
             "supportEmail": "",
             "primaryColor": "#F77F00",
             "logoUrl": ""
+          },
+          "genericWebhook": {
+            "enabled": false,
+            "url": "https://webhook.example.com/endpoint",
+            "events": [
+              "detection_alert",
+              "page_blocked",
+              "threat_detected"
+            ]
           }
         }
       }
@@ -128,6 +137,8 @@ Firefox uses the `3rdparty` section in `policies.json` to configure extension se
 ```
 
 See the full configuration schema in `config/managed_schema.json` for all available settings.
+
+For webhook configuration and payload details, see the [Webhook Documentation](webhooks.md).
 
 ### Force Installation
 
