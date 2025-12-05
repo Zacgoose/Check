@@ -16,6 +16,7 @@ class CheckPopup {
     this.activityItems = [];
     this.isLoading = false;
     this.isBlockedRoute = false;
+    this.cachedDebugData = null; // Store debug data for blocked pages to enable toggling
 
     this.elements = {};
     this.bindElements();
@@ -1375,6 +1376,18 @@ class CheckPopup {
       return;
     }
 
+    // For blocked pages, use cached debug data if available
+    if (this.isBlockedRoute && this.cachedDebugData && this.cachedDebugData.detectionDetails) {
+      console.log("Re-displaying cached debug data for blocked page");
+      this.displayDetectionDetails(this.cachedDebugData.detectionDetails);
+      this.elements.detectionResults.style.display = "block";
+      this.elements.showDetectionDetails.innerHTML = `
+        <span class="material-icons">visibility_off</span>
+        Hide Details
+      `;
+      return;
+    }
+
     if (!this.currentTab || !this.currentTab.url) {
       this.showNotification("No active tab to analyze", "warning");
       return;
@@ -1945,6 +1958,9 @@ class CheckPopup {
         );
         console.log("Has consoleLogs:", !!storedDebugData.consoleLogs);
         console.log("Has pageSource:", !!storedDebugData.pageSource);
+
+        // Cache the debug data for toggling
+        this.cachedDebugData = storedDebugData;
 
         // Display detection details if available
         if (storedDebugData.detectionDetails) {
