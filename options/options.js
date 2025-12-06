@@ -1147,13 +1147,17 @@ class CheckOptions {
       showNotifications: this.elements.showNotifications?.checked || false,
       enableValidPageBadge:
         this.elements.enableValidPageBadge?.checked || false,
-      validPageBadgeTimeout: parseInt(
-        this.elements.validPageBadgeTimeout?.value || 5
+      validPageBadgeTimeout: Math.min(
+        300,
+        Math.max(0, parseInt(this.elements.validPageBadgeTimeout?.value || 5, 10) || 5)
       ),
 
       // Detection settings
       customRulesUrl: this.elements.customRulesUrl?.value || "",
-      updateInterval: parseInt(this.elements.updateInterval?.value || 24),
+      updateInterval: Math.min(
+        168,
+        Math.max(1, parseInt(this.elements.updateInterval?.value || 24, 10) || 24)
+      ),
 
       // Generic webhook
       genericWebhook: {
