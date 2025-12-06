@@ -4959,7 +4959,7 @@ if (window.checkExtensionLoaded) {
             }, 1000);
           } else if (escalatedToBlock) {
             logger.debug("🛑 Page escalated to block - ignoring DOM changes during debounce check");
-          } else if (showingBanner && !escalatedToBlock) {
+          } else if (showingBanner) {
             logger.debug(
               "🔍 DOM changes detected while banner is displayed - scanning cleaned page source (debounced)"
             );
