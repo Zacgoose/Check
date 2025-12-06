@@ -5528,6 +5528,8 @@ if (window.checkExtensionLoaded) {
   /**
    * Show valid badge for trusted domains
    */
+  let validBadgeTimeoutId = null; // Store timeout ID for cleanup
+  
   async function showValidBadge() {
     try {
       // Check if badge already exists - for valid badge, we don't need to update content
@@ -5535,6 +5537,12 @@ if (window.checkExtensionLoaded) {
       if (document.getElementById("ms365-valid-badge")) {
         logger.log("Valid badge already displayed");
         return;
+      }
+
+      // Clear any existing timeout from previous badge
+      if (validBadgeTimeoutId) {
+        clearTimeout(validBadgeTimeoutId);
+        validBadgeTimeoutId = null;
       }
 
       // Load timeout configuration
@@ -5588,7 +5596,7 @@ if (window.checkExtensionLoaded) {
             <strong>Verified Microsoft Domain</strong><br>
             <small>This is an authentic Microsoft login page</small>
           </div>
-          <button onclick="this.parentElement.parentElement.remove(); document.body.style.marginTop = '0';" title="Dismiss" style="
+          <button onclick="if(window.validBadgeTimeoutId){clearTimeout(window.validBadgeTimeoutId);window.validBadgeTimeoutId=null;} this.parentElement.parentElement.remove(); document.body.style.marginTop = '0';" title="Dismiss" style="
             position: absolute; right: 16px; top: 50%; transform: translateY(-50%);
             background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3);
             color: white; padding: 0; border-radius: 4px; cursor: pointer;
@@ -5638,7 +5646,7 @@ if (window.checkExtensionLoaded) {
         logger.log(`Valid badge will auto-dismiss in ${timeoutSeconds} seconds`);
         // Capture isMobile state for the timeout callback to avoid race conditions
         const wasMobileBanner = isMobile;
-        setTimeout(() => {
+        validBadgeTimeoutId = setTimeout(() => {
           const existingBadge = document.getElementById("ms365-valid-badge");
           if (existingBadge) {
             existingBadge.remove();
@@ -5648,7 +5656,10 @@ if (window.checkExtensionLoaded) {
             }
             logger.log(`Valid badge auto-dismissed after ${timeoutSeconds}s timeout`);
           }
+          validBadgeTimeoutId = null; // Clear the reference
         }, timeoutSeconds * 1000);
+        // Make timeout ID accessible to inline onclick handler
+        window.validBadgeTimeoutId = validBadgeTimeoutId;
       } else {
         logger.log("Valid badge will stay visible until manually dismissed (timeout = 0)");
       }
