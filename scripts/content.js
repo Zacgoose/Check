@@ -5636,15 +5636,17 @@ if (window.checkExtensionLoaded) {
       // Auto-dismiss after timeout if configured (0 = no timeout)
       if (timeoutSeconds > 0) {
         logger.log(`Valid badge will auto-dismiss in ${timeoutSeconds} seconds`);
+        // Capture isMobile state for the timeout callback to avoid race conditions
+        const wasMobileBanner = isMobile;
         setTimeout(() => {
           const existingBadge = document.getElementById("ms365-valid-badge");
           if (existingBadge) {
             existingBadge.remove();
             // Reset margin if it was a mobile banner
-            if (isMobile) {
+            if (wasMobileBanner) {
               document.body.style.marginTop = '0';
             }
-            logger.log("Valid badge auto-dismissed after timeout");
+            logger.log(`Valid badge auto-dismissed after ${timeoutSeconds}s timeout`);
           }
         }, timeoutSeconds * 1000);
       } else {
