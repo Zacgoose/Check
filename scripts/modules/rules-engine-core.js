@@ -361,7 +361,7 @@ function processPhishingIndicators(indicators, pageSource, pageText, url, option
         category: ind.category || "general",
         confidence: ind.confidence ?? 0.5,
         description: ind.description || "",
-        matchDetails: snippet || matchedFrom || "",
+        matchDetails: snippet || matchedFrom || matchDetails || "",
       };
       threats.push(threat);
 

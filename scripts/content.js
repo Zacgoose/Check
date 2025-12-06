@@ -3255,7 +3255,7 @@ if (window.checkExtensionLoaded) {
       let cleanedSourceLength = null;
       if (typeof arguments[1] === "object" && arguments[1]?.scanCleaned) {
         // If scanCleaned is true, get cleaned page source length
-        const cleanedSource = typeof getPageSource === "function" ? getPageSource(true) : null;
+        const cleanedSource = getCleanPageSource();
         cleanedSourceLength = cleanedSource ? cleanedSource.length : null;
         logger.log(
           `📄 Page info: ${document.querySelectorAll("*").length} elements, ${
