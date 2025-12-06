@@ -1024,18 +1024,39 @@ if (window.checkExtensionLoaded) {
         timestamp: Date.now(),
         debugData: debugData,
       };
-      await new Promise((resolve, reject) => {
+      
+      // Use Promise.race with 100ms timeout to avoid blocking phishing page redirect
+      // This ensures user protection is prioritized while still attempting to store debug data
+      const storagePromise = new Promise((resolve, reject) => {
         chrome.storage.local.set({ [storageKey]: dataToStore }, () => {
           if (chrome.runtime.lastError) {
+            console.error("Storage error:", chrome.runtime.lastError.message);
             reject(chrome.runtime.lastError);
           } else {
-            console.log("Debug data stored before redirect:", storageKey);
-            resolve();
+            console.log("Debug data stored successfully:", storageKey);
+            resolve(true);
           }
         });
       });
+      
+      const timeoutPromise = new Promise((resolve) => {
+        setTimeout(() => {
+          console.warn("Debug data storage timeout (100ms) - proceeding with block for user safety");
+          resolve(false);
+        }, 100);
+      });
+      
+      const completed = await Promise.race([storagePromise, timeoutPromise]);
+      
+      // If timeout was reached, continue storage in background (fire-and-forget)
+      if (completed === false) {
+        storagePromise.catch((err) => {
+          console.error("Background storage failed:", err?.message || String(err));
+        });
+      }
     } catch (error) {
-      console.error("Failed to store debug data before redirect:", error);
+      console.error("Failed to store debug data before redirect:", error?.message || String(error));
+      // Continue with redirect even if storage fails - user protection is priority
     }
   }
 
@@ -3719,7 +3740,7 @@ if (window.checkExtensionLoaded) {
               logger.error(
                 "🛡️ PROTECTION ACTIVE: Blocking page due to critical phishing indicators"
               );
-              showBlockingOverlay(reason, {
+              await showBlockingOverlay(reason, {
                 threats: criticalThreats,
                 score: phishingResult.score,
               });
@@ -3821,7 +3842,7 @@ if (window.checkExtensionLoaded) {
                 logger.error(
                   "🛡️ PROTECTION ACTIVE: Blocking page due to escalated warning threats"
                 );
-                showBlockingOverlay(reason, {
+                await showBlockingOverlay(reason, {
                   threats: warningThreats,
                   score: phishingResult.score,
                   escalated: true,
@@ -4142,7 +4163,7 @@ if (window.checkExtensionLoaded) {
             logger.warn("Failed to send page_blocked webhook:", err.message);
           });
           
-          showBlockingOverlay(blockingResult.reason, blockingResult);
+          await showBlockingOverlay(blockingResult.reason, blockingResult);
           disableFormSubmissions();
           disableCredentialInputs();
           stopDOMMonitoring();
@@ -4258,7 +4279,7 @@ if (window.checkExtensionLoaded) {
             logger.warn("Failed to send page_blocked webhook:", err.message);
           });
           
-          showBlockingOverlay(reason, {
+          await showBlockingOverlay(reason, {
             threats: criticalBlockingRules.map((rule) => ({
               description: rule.description,
               severity: "critical",
@@ -4401,7 +4422,7 @@ if (window.checkExtensionLoaded) {
             logger.warn("Failed to send page_blocked webhook:", err.message);
           });
           
-          showBlockingOverlay(reason, {
+          await showBlockingOverlay(reason, {
             threats: criticalThreats,
             score: phishingResult.score,
           });
@@ -4481,7 +4502,7 @@ if (window.checkExtensionLoaded) {
             logger.error(
               "🛡️ PROTECTION ACTIVE: Blocking due to very low detection score"
             );
-            showBlockingOverlay(reason, {
+            await showBlockingOverlay(reason, {
               threats: [{ description: reason, severity: "high" }],
               score: detectionResult.score,
             });
@@ -4591,7 +4612,7 @@ if (window.checkExtensionLoaded) {
               logger.warn("Failed to send page_blocked webhook:", err.message);
             });
             
-            showBlockingOverlay(reason, lastDetectionResult);
+            await showBlockingOverlay(reason, lastDetectionResult);
             disableFormSubmissions();
             disableCredentialInputs();
             stopDOMMonitoring(); // Stop monitoring once blocked
@@ -5039,7 +5060,7 @@ if (window.checkExtensionLoaded) {
   /**
    * Block page by redirecting to Chrome blocking page - NO USER OVERRIDE
    */
-  function showBlockingOverlay(reason, analysisData) {
+  async function showBlockingOverlay(reason, analysisData) {
     try {
       // CRITICAL: Set escalated to block flag FIRST to prevent any further scans
       escalatedToBlock = true;
@@ -5096,7 +5117,8 @@ if (window.checkExtensionLoaded) {
       logger.log("Enriched blocking details:", blockingDetails);
 
       // Store debug data before redirect so it can be retrieved on blocked page
-      storeDebugDataBeforeRedirect(location.href, analysisData);
+      // IMPORTANT: Wait for storage to complete before redirecting to avoid race condition
+      await storeDebugDataBeforeRedirect(location.href, analysisData);
 
       // Encode the details for the blocking page
       const encodedDetails = encodeURIComponent(
