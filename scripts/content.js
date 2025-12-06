@@ -5528,7 +5528,9 @@ if (window.checkExtensionLoaded) {
   /**
    * Show valid badge for trusted domains
    */
-  function showValidBadge() {
+  let validBadgeTimeoutId = null; // Store timeout ID for cleanup
+  
+  async function showValidBadge() {
     try {
       // Check if badge already exists - for valid badge, we don't need to update content
       // since it's always the same, but we ensure it's still visible
@@ -5536,6 +5538,27 @@ if (window.checkExtensionLoaded) {
         logger.log("Valid badge already displayed");
         return;
       }
+
+      // Clear any existing timeout from previous badge
+      if (validBadgeTimeoutId) {
+        clearTimeout(validBadgeTimeoutId);
+        validBadgeTimeoutId = null;
+      }
+
+      // Load timeout configuration
+      const config = await new Promise((resolve) => {
+        chrome.storage.local.get(["config"], (result) => {
+          resolve(result.config || {});
+        });
+      });
+
+      // Get timeout value (default to 5 seconds if not configured)
+      // A value of 0 means no timeout (badge stays until manually dismissed)
+      const timeoutSeconds = config.validPageBadgeTimeout !== undefined 
+        ? config.validPageBadgeTimeout 
+        : 5;
+
+      logger.debug(`Valid badge timeout configured: ${timeoutSeconds} seconds (0 = no timeout)`);
 
       // Check if mobile using media query (more conservative breakpoint)
       const isMobile = window.matchMedia("(max-width: 480px)").matches;
@@ -5573,7 +5596,7 @@ if (window.checkExtensionLoaded) {
             <strong>Verified Microsoft Domain</strong><br>
             <small>This is an authentic Microsoft login page</small>
           </div>
-          <button onclick="this.parentElement.parentElement.remove(); document.body.style.marginTop = '0';" title="Dismiss" style="
+          <button onclick="if(window.validBadgeTimeoutId){clearTimeout(window.validBadgeTimeoutId);window.validBadgeTimeoutId=null;} this.parentElement.parentElement.remove(); document.body.style.marginTop = '0';" title="Dismiss" style="
             position: absolute; right: 16px; top: 50%; transform: translateY(-50%);
             background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3);
             color: white; padding: 0; border-radius: 4px; cursor: pointer;
@@ -5617,6 +5640,29 @@ if (window.checkExtensionLoaded) {
       }
 
       logger.log("Valid badge displayed");
+
+      // Auto-dismiss after timeout if configured (0 = no timeout)
+      if (timeoutSeconds > 0) {
+        logger.log(`Valid badge will auto-dismiss in ${timeoutSeconds} seconds`);
+        // Capture isMobile state for the timeout callback to avoid race conditions
+        const wasMobileBanner = isMobile;
+        validBadgeTimeoutId = setTimeout(() => {
+          const existingBadge = document.getElementById("ms365-valid-badge");
+          if (existingBadge) {
+            existingBadge.remove();
+            // Reset margin if it was a mobile banner
+            if (wasMobileBanner) {
+              document.body.style.marginTop = '0';
+            }
+            logger.log(`Valid badge auto-dismissed after ${timeoutSeconds}s timeout`);
+          }
+          validBadgeTimeoutId = null; // Clear the reference
+        }, timeoutSeconds * 1000);
+        // Make timeout ID accessible to inline onclick handler
+        window.validBadgeTimeoutId = validBadgeTimeoutId;
+      } else {
+        logger.log("Valid badge will stay visible until manually dismissed (timeout = 0)");
+      }
     } catch (error) {
       logger.error("Failed to show valid badge:", error.message);
     }

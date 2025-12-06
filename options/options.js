@@ -52,6 +52,9 @@ class CheckOptions {
     this.elements.enableValidPageBadge = document.getElementById(
       "enableValidPageBadge"
     );
+    this.elements.validPageBadgeTimeout = document.getElementById(
+      "validPageBadgeTimeout"
+    );
 
     // Detection settings
     this.elements.customRulesUrl = document.getElementById("customRulesUrl");
@@ -193,6 +196,46 @@ class CheckOptions {
         input.addEventListener("input", () => this.updateBrandingPreview());
       }
     });
+
+    // Validate timeout input
+    if (this.elements.validPageBadgeTimeout) {
+      this.elements.validPageBadgeTimeout.addEventListener("input", (e) => {
+        const input = e.target;
+        let value = input.value;
+        
+        // Remove any non-numeric characters except minus sign at start
+        value = value.replace(/[^\d-]/g, '');
+        
+        // Remove minus signs (we don't allow negative numbers)
+        value = value.replace(/-/g, '');
+        
+        // Parse as integer
+        const numValue = parseInt(value, 10);
+        
+        // If empty or NaN, clear the field
+        if (value === '' || isNaN(numValue)) {
+          input.value = '';
+          return;
+        }
+        
+        // Enforce min/max constraints
+        if (numValue < 0) {
+          input.value = '0';
+        } else if (numValue > 300) {
+          input.value = '300';
+        } else {
+          input.value = numValue.toString();
+        }
+      });
+      
+      // Validate on blur - set to default if empty
+      this.elements.validPageBadgeTimeout.addEventListener("blur", (e) => {
+        const input = e.target;
+        if (input.value === '' || input.value === null) {
+          input.value = '5'; // Reset to default
+        }
+      });
+    }
 
     // Modal actions
     this.elements.modalCancel?.addEventListener("click", () =>
@@ -889,6 +932,10 @@ class CheckOptions {
     this.elements.showNotifications.checked = this.config?.showNotifications;
     this.elements.enableValidPageBadge.checked =
       this.config.enableValidPageBadge || false;
+    this.elements.validPageBadgeTimeout.value =
+      this.config.validPageBadgeTimeout !== undefined
+        ? this.config.validPageBadgeTimeout
+        : 5;
 
     // Detection settings - use top-level customRulesUrl consistently
     this.elements.customRulesUrl.value = this.config?.customRulesUrl || "";
@@ -1140,10 +1187,19 @@ class CheckOptions {
       showNotifications: this.elements.showNotifications?.checked || false,
       enableValidPageBadge:
         this.elements.enableValidPageBadge?.checked || false,
+      validPageBadgeTimeout: (() => {
+        const value = parseInt(this.elements.validPageBadgeTimeout?.value, 10);
+        if (isNaN(value)) return 5; // Default if invalid
+        return Math.min(300, Math.max(0, value)); // Clamp to 0-300 range
+      })(),
 
       // Detection settings
       customRulesUrl: this.elements.customRulesUrl?.value || "",
-      updateInterval: parseInt(this.elements.updateInterval?.value || 24),
+      updateInterval: (() => {
+        const value = parseInt(this.elements.updateInterval?.value, 10);
+        if (isNaN(value)) return 24; // Default if invalid
+        return Math.min(168, Math.max(1, value)); // Clamp to 1-168 range
+      })(),
 
       // Generic webhook
       genericWebhook: {
