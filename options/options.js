@@ -197,6 +197,46 @@ class CheckOptions {
       }
     });
 
+    // Validate timeout input
+    if (this.elements.validPageBadgeTimeout) {
+      this.elements.validPageBadgeTimeout.addEventListener("input", (e) => {
+        const input = e.target;
+        let value = input.value;
+        
+        // Remove any non-numeric characters except minus sign at start
+        value = value.replace(/[^\d-]/g, '');
+        
+        // Remove minus signs (we don't allow negative numbers)
+        value = value.replace(/-/g, '');
+        
+        // Parse as integer
+        const numValue = parseInt(value, 10);
+        
+        // If empty or NaN, clear the field
+        if (value === '' || isNaN(numValue)) {
+          input.value = '';
+          return;
+        }
+        
+        // Enforce min/max constraints
+        if (numValue < 0) {
+          input.value = '0';
+        } else if (numValue > 300) {
+          input.value = '300';
+        } else {
+          input.value = numValue.toString();
+        }
+      });
+      
+      // Validate on blur - set to default if empty
+      this.elements.validPageBadgeTimeout.addEventListener("blur", (e) => {
+        const input = e.target;
+        if (input.value === '' || input.value === null) {
+          input.value = '5'; // Reset to default
+        }
+      });
+    }
+
     // Modal actions
     this.elements.modalCancel?.addEventListener("click", () =>
       this.hideModal()
