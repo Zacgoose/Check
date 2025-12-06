@@ -5528,7 +5528,7 @@ if (window.checkExtensionLoaded) {
   /**
    * Show valid badge for trusted domains
    */
-  function showValidBadge() {
+  async function showValidBadge() {
     try {
       // Check if badge already exists - for valid badge, we don't need to update content
       // since it's always the same, but we ensure it's still visible
@@ -5536,6 +5536,21 @@ if (window.checkExtensionLoaded) {
         logger.log("Valid badge already displayed");
         return;
       }
+
+      // Load timeout configuration
+      const config = await new Promise((resolve) => {
+        chrome.storage.local.get(["config"], (result) => {
+          resolve(result.config || {});
+        });
+      });
+
+      // Get timeout value (default to 5 seconds if not configured)
+      // A value of 0 means no timeout (badge stays until manually dismissed)
+      const timeoutSeconds = config.validPageBadgeTimeout !== undefined 
+        ? config.validPageBadgeTimeout 
+        : 5;
+
+      logger.debug(`Valid badge timeout configured: ${timeoutSeconds} seconds (0 = no timeout)`);
 
       // Check if mobile using media query (more conservative breakpoint)
       const isMobile = window.matchMedia("(max-width: 480px)").matches;
@@ -5617,6 +5632,24 @@ if (window.checkExtensionLoaded) {
       }
 
       logger.log("Valid badge displayed");
+
+      // Auto-dismiss after timeout if configured (0 = no timeout)
+      if (timeoutSeconds > 0) {
+        logger.log(`Valid badge will auto-dismiss in ${timeoutSeconds} seconds`);
+        setTimeout(() => {
+          const existingBadge = document.getElementById("ms365-valid-badge");
+          if (existingBadge) {
+            existingBadge.remove();
+            // Reset margin if it was a mobile banner
+            if (isMobile) {
+              document.body.style.marginTop = '0';
+            }
+            logger.log("Valid badge auto-dismissed after timeout");
+          }
+        }, timeoutSeconds * 1000);
+      } else {
+        logger.log("Valid badge will stay visible until manually dismissed (timeout = 0)");
+      }
     } catch (error) {
       logger.error("Failed to show valid badge:", error.message);
     }

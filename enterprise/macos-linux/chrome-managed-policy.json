@@ -10,6 +10,7 @@
             "benimdeioplgkhanklclahllklceahbe": {
                 "showNotifications": true,
                 "enableValidPageBadge": true,
+                "validPageBadgeTimeout": 5,
                 "enablePageBlocking": true,
                 "enableCippReporting": false,
                 "cippServerUrl": "",

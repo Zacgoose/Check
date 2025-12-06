@@ -52,6 +52,9 @@ class CheckOptions {
     this.elements.enableValidPageBadge = document.getElementById(
       "enableValidPageBadge"
     );
+    this.elements.validPageBadgeTimeout = document.getElementById(
+      "validPageBadgeTimeout"
+    );
 
     // Detection settings
     this.elements.customRulesUrl = document.getElementById("customRulesUrl");
@@ -889,6 +892,10 @@ class CheckOptions {
     this.elements.showNotifications.checked = this.config?.showNotifications;
     this.elements.enableValidPageBadge.checked =
       this.config.enableValidPageBadge || false;
+    this.elements.validPageBadgeTimeout.value =
+      this.config.validPageBadgeTimeout !== undefined
+        ? this.config.validPageBadgeTimeout
+        : 5;
 
     // Detection settings - use top-level customRulesUrl consistently
     this.elements.customRulesUrl.value = this.config?.customRulesUrl || "";
@@ -1140,6 +1147,9 @@ class CheckOptions {
       showNotifications: this.elements.showNotifications?.checked || false,
       enableValidPageBadge:
         this.elements.enableValidPageBadge?.checked || false,
+      validPageBadgeTimeout: parseInt(
+        this.elements.validPageBadgeTimeout?.value || 5
+      ),
 
       // Detection settings
       customRulesUrl: this.elements.customRulesUrl?.value || "",
