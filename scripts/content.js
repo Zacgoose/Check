@@ -1905,9 +1905,29 @@ if (window.checkExtensionLoaded) {
     /**
      * Check if required substrings are present but prohibited ones are not
      */
-    has_but_not: (source, params) => {
+    has_but_not: (source, params, context) => {
       const lower = source.toLowerCase();
+      
+      // Special handling: if check_url_only is true, only check the URL from context
+      if (params.check_url_only && context.currentUrl) {
+        const urlLower = context.currentUrl.toLowerCase();
+        
+        // Check if any required substring is present in URL
+        const hasRequired = params.required.some((req) =>
+          urlLower.includes(req.toLowerCase())
+        );
 
+        if (!hasRequired) return false;
+
+        // Check if any prohibited substring is present in URL
+        const hasProhibited = params.prohibited.some((pro) =>
+          urlLower.includes(pro.toLowerCase())
+        );
+
+        return !hasProhibited;
+      }
+
+      // Default behavior: check source content
       // Check if any required substring is present
       const hasRequired = params.required.some((req) =>
         lower.includes(req.toLowerCase())
@@ -2503,7 +2523,7 @@ if (window.checkExtensionLoaded) {
                       matches = evaluatePrimitive(
                         pageSource,
                         indicator.code_logic,
-                        { cache: new Map() }
+                        { cache: new Map(), currentUrl: window.location.href }
                       );
                       if (matches) matchDetails = "primitive match";
                     } catch (primitiveError) {
@@ -3354,7 +3374,7 @@ if (window.checkExtensionLoaded) {
                       ruleTriggered = evaluatePrimitive(
                         pageHTML,
                         rule.code_logic,
-                        { cache: new Map() }
+                        { cache: new Map(), currentUrl: location.href }
                       );
                     } catch (primitiveError) {
                       logger.warn(

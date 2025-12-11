@@ -559,7 +559,7 @@
       "description": "Form with submit listeners that modify action attribute",
       "action": "block",
       "category": "dom_manipulation",
-      "confidence": 0.90,
+      "confidence": 0.9,
       "weight": 20
     },
     {
@@ -593,7 +593,11 @@
           },
           {
             "type": "substring_present",
-            "values": ["microsoft", "office", "365"]
+            "values": [
+              "microsoft",
+              "office",
+              "365"
+            ]
           }
         ]
       },
@@ -629,7 +633,9 @@
       "code_logic": {
         "type": "resource_from_domain",
         "resource_type": "customcss",
-        "allowed_domains": ["aadcdn.msftauthimages.net"],
+        "allowed_domains": [
+          "aadcdn.msftauthimages.net"
+        ],
         "invert": true
       },
       "severity": "high",
@@ -646,21 +652,33 @@
         "operations": [
           {
             "type": "substring_present",
-            "values": ["microsoft", "office", "365"]
+            "values": [
+              "microsoft",
+              "office",
+              "365"
+            ]
           },
           {
             "type": "substring_present",
-            "values": ["login", "password", "signin"]
+            "values": [
+              "login",
+              "password",
+              "signin"
+            ]
           },
           {
             "type": "pattern_count",
-            "patterns": ["<form[^>]*action"],
+            "patterns": [
+              "<form[^>]*action"
+            ],
             "flags": "i",
             "min_count": 1
           },
           {
             "type": "has_but_not",
-            "required": ["action"],
+            "required": [
+              "action"
+            ],
             "prohibited": [
               "login.microsoftonline.com",
               ".auth/login/",
@@ -684,13 +702,21 @@
         "operations": [
           {
             "type": "substring_count",
-            "substrings": ["loginfmt", "i0116", "idSIButton9"],
+            "substrings": [
+              "loginfmt",
+              "i0116",
+              "idSIButton9"
+            ],
             "min_count": 2
           },
           {
             "type": "has_but_not",
-            "required": ["password"],
-            "prohibited": ["login.microsoftonline.com"]
+            "required": [
+              "password"
+            ],
+            "prohibited": [
+              "login.microsoftonline.com"
+            ]
           }
         ]
       },
@@ -718,15 +744,24 @@
         "operations": [
           {
             "type": "substring_present",
-            "values": ["microsoft", "office", "365"]
+            "values": [
+              "microsoft",
+              "office",
+              "365"
+            ]
           },
           {
             "type": "substring_present",
-            "values": ["password", "passwd"]
+            "values": [
+              "password",
+              "passwd"
+            ]
           },
           {
             "type": "form_action_check",
-            "required_domains": ["login.microsoftonline.com"]
+            "required_domains": [
+              "login.microsoftonline.com"
+            ]
           }
         ]
       },
@@ -903,7 +938,7 @@
         "type": "has_but_not",
         "required": [
           "secure-microsoft",
-          "secure-office", 
+          "secure-office",
           "secure-365",
           "secure-outlook",
           "securemicrosoft",
@@ -946,7 +981,8 @@
           "azure static web apps",
           "easy auth",
           "easyauth"
-        ]
+        ],
+        "check_url_only": true
       },
       "severity": "critical",
       "description": "Enhanced detection of domains mimicking Microsoft services with security/login keywords (excludes legitimate SSO)",
@@ -962,7 +998,13 @@
         "operations": [
           {
             "type": "substring_present",
-            "values": ["microsoft", "office", "365", "outlook", "azure"]
+            "values": [
+              "microsoft",
+              "office",
+              "365",
+              "outlook",
+              "azure"
+            ]
           },
           {
             "type": "any_of",
@@ -1013,7 +1055,11 @@
           },
           {
             "type": "has_but_not",
-            "required": ["team", "department", "support"],
+            "required": [
+              "team",
+              "department",
+              "support"
+            ],
             "prohibited": [
               "sign in with microsoft",
               "continue with microsoft",
@@ -1041,29 +1087,167 @@
       "code_logic": {
         "type": "multi_proximity",
         "pairs": [
-          {"words": ["verify", "account"], "max_distance": 50},
-          {"words": ["verify", "information"], "max_distance": 50},
-          {"words": ["verify", "identity"], "max_distance": 50},
-          {"words": ["suspended", "365"], "max_distance": 50},
-          {"words": ["suspended", "account"], "max_distance": 50},
-          {"words": ["suspended", "office"], "max_distance": 50},
-          {"words": ["update", "office"], "max_distance": 50},
-          {"words": ["update", "microsoft"], "max_distance": 50},
-          {"words": ["update", "365"], "max_distance": 50},
-          {"words": ["secure", "microsoft"], "max_distance": 50},
-          {"words": ["secure", "account"], "max_distance": 50},
-          {"words": ["account", "security"], "max_distance": 50},
-          {"words": ["security", "verification"], "max_distance": 50},
-          {"words": ["security", "alert"], "max_distance": 50},
-          {"words": ["login", "microsoft"], "max_distance": 50},
-          {"words": ["microsoft", "login"], "max_distance": 50},
-          {"words": ["microsoft", "authentication"], "max_distance": 50},
-          {"words": ["authentication", "microsoft"], "max_distance": 50},
-          {"words": ["office", "365"], "max_distance": 50},
-          {"words": ["365", "login"], "max_distance": 50},
-          {"words": ["office", "login"], "max_distance": 50},
-          {"words": ["365", "suspended"], "max_distance": 50},
-          {"words": ["office", "suspended"], "max_distance": 50}
+          {
+            "words": [
+              "verify",
+              "account"
+            ],
+            "max_distance": 50
+          },
+          {
+            "words": [
+              "verify",
+              "information"
+            ],
+            "max_distance": 50
+          },
+          {
+            "words": [
+              "verify",
+              "identity"
+            ],
+            "max_distance": 50
+          },
+          {
+            "words": [
+              "suspended",
+              "365"
+            ],
+            "max_distance": 50
+          },
+          {
+            "words": [
+              "suspended",
+              "account"
+            ],
+            "max_distance": 50
+          },
+          {
+            "words": [
+              "suspended",
+              "office"
+            ],
+            "max_distance": 50
+          },
+          {
+            "words": [
+              "update",
+              "office"
+            ],
+            "max_distance": 50
+          },
+          {
+            "words": [
+              "update",
+              "microsoft"
+            ],
+            "max_distance": 50
+          },
+          {
+            "words": [
+              "update",
+              "365"
+            ],
+            "max_distance": 50
+          },
+          {
+            "words": [
+              "secure",
+              "microsoft"
+            ],
+            "max_distance": 50
+          },
+          {
+            "words": [
+              "secure",
+              "account"
+            ],
+            "max_distance": 50
+          },
+          {
+            "words": [
+              "account",
+              "security"
+            ],
+            "max_distance": 50
+          },
+          {
+            "words": [
+              "security",
+              "verification"
+            ],
+            "max_distance": 50
+          },
+          {
+            "words": [
+              "security",
+              "alert"
+            ],
+            "max_distance": 50
+          },
+          {
+            "words": [
+              "login",
+              "microsoft"
+            ],
+            "max_distance": 50
+          },
+          {
+            "words": [
+              "microsoft",
+              "login"
+            ],
+            "max_distance": 50
+          },
+          {
+            "words": [
+              "microsoft",
+              "authentication"
+            ],
+            "max_distance": 50
+          },
+          {
+            "words": [
+              "authentication",
+              "microsoft"
+            ],
+            "max_distance": 50
+          },
+          {
+            "words": [
+              "office",
+              "365"
+            ],
+            "max_distance": 50
+          },
+          {
+            "words": [
+              "365",
+              "login"
+            ],
+            "max_distance": 50
+          },
+          {
+            "words": [
+              "office",
+              "login"
+            ],
+            "max_distance": 50
+          },
+          {
+            "words": [
+              "365",
+              "suspended"
+            ],
+            "max_distance": 50
+          },
+          {
+            "words": [
+              "office",
+              "suspended"
+            ],
+            "max_distance": 50
+          }
         ]
       },
       "severity": "high",
@@ -1130,22 +1314,34 @@
             "type": "multi_proximity",
             "pairs": [
               {
-                "words": ["microsoft", "login"],
+                "words": [
+                  "microsoft",
+                  "login"
+                ],
                 "max_distance": 750
               },
               {
-                "words": ["office", "sign in"],
+                "words": [
+                  "office",
+                  "sign in"
+                ],
                 "max_distance": 750
               },
               {
-                "words": ["365", "authentication"],
+                "words": [
+                  "365",
+                  "authentication"
+                ],
                 "max_distance": 750
               }
             ]
           },
           {
             "type": "has_but_not",
-            "required": ["login", "sign"],
+            "required": [
+              "login",
+              "sign"
+            ],
             "prohibited": [
               "sign in with microsoft",
               "continue with microsoft",
@@ -1246,7 +1442,7 @@
       "id": "leg_001",
       "pattern": "login\\.microsoftonline\\.com",
       "description": "Official Microsoft Online login domain",
-      "confidence": 1.0
+      "confidence": 1
     },
     {
       "id": "leg_002",
@@ -1294,7 +1490,7 @@
         "https:\\/\\/*.bing.com/"
       ],
       "description": "Required domains in content-security-policy-report-only header",
-      "confidence": 1.0
+      "confidence": 1
     },
     {
       "id": "leg_006",
