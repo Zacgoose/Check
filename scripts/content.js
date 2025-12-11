@@ -2123,6 +2123,21 @@ if (window.checkExtensionLoaded) {
 
       return matchCount >= params.min_matches;
     },
+
+    /**
+     * Exclusion check - returns FALSE if any prohibited substring is present
+     * Used to exclude legitimate contexts from detection
+     */
+    not_if_contains: (source, params) => {
+      const lower = source.toLowerCase();
+      
+      // If any prohibited substring is present, return false (exclude/skip this rule)
+      const hasProhibited = params.prohibited.some((pro) =>
+        lower.includes(pro.toLowerCase())
+      );
+      
+      return !hasProhibited; // True = continue with rule, False = skip rule
+    },
   };
 
   /**

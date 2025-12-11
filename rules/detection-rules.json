@@ -667,39 +667,68 @@
         "type": "all_of",
         "operations": [
           {
-            "type": "substring_present",
-            "values": [
-              "microsoft",
-              "office",
-              "365"
+            "type": "all_of",
+            "operations": [
+              {
+                "type": "substring_present",
+                "values": [
+                  "microsoft",
+                  "office",
+                  "365"
+                ]
+              },
+              {
+                "type": "substring_present",
+                "values": [
+                  "login",
+                  "password",
+                  "signin"
+                ]
+              },
+              {
+                "type": "pattern_count",
+                "patterns": [
+                  "<form[^>]*action"
+                ],
+                "flags": "i",
+                "min_count": 1
+              },
+              {
+                "type": "has_but_not",
+                "required": [
+                  "action"
+                ],
+                "prohibited": [
+                  "login.microsoftonline.com",
+                  ".auth/login/",
+                  "azure static web apps",
+                  "easy auth"
+                ]
+              }
             ]
           },
           {
-            "type": "substring_present",
-            "values": [
-              "login",
-              "password",
-              "signin"
-            ]
-          },
-          {
-            "type": "pattern_count",
-            "patterns": [
-              "<form[^>]*action"
-            ],
-            "flags": "i",
-            "min_count": 1
-          },
-          {
-            "type": "has_but_not",
-            "required": [
-              "action"
-            ],
+            "type": "not_if_contains",
             "prohibited": [
-              "login.microsoftonline.com",
-              ".auth/login/",
-              "azure static web apps",
-              "easy auth"
+              "migration tool",
+              "governance tool",
+              "management platform",
+              "consulting service",
+              "microsoft partner",
+              "solutions provider",
+              "microsoft 365 migration",
+              "microsoft 365 governance",
+              "sharepoint migration",
+              "tenant migration",
+              "tenant-to-tenant migration",
+              "microsoft 365 management",
+              "microsoft 365 solutions",
+              "build a secure",
+              "ai-ready microsoft",
+              "copilot readiness",
+              "microsoft teams management",
+              "azure active directory management",
+              "office 365 migration"
             ]
           }
         ]
@@ -759,24 +788,53 @@
         "type": "all_of",
         "operations": [
           {
-            "type": "substring_present",
-            "values": [
-              "microsoft",
-              "office",
-              "365"
+            "type": "all_of",
+            "operations": [
+              {
+                "type": "substring_present",
+                "values": [
+                  "microsoft",
+                  "office",
+                  "365"
+                ]
+              },
+              {
+                "type": "substring_present",
+                "values": [
+                  "password",
+                  "passwd"
+                ]
+              },
+              {
+                "type": "form_action_check",
+                "required_domains": [
+                  "login.microsoftonline.com"
+                ]
+              }
             ]
           },
           {
-            "type": "substring_present",
-            "values": [
-              "password",
-              "passwd"
-            ]
-          },
-          {
-            "type": "form_action_check",
-            "required_domains": [
-              "login.microsoftonline.com"
+            "type": "not_if_contains",
+            "prohibited": [
+              "migration tool",
+              "governance tool",
+              "management platform",
+              "consulting service",
+              "microsoft partner",
+              "solutions provider",
+              "microsoft 365 migration",
+              "microsoft 365 governance",
+              "sharepoint migration",
+              "tenant migration",
+              "tenant-to-tenant migration",
+              "microsoft 365 management",
+              "microsoft 365 solutions",
+              "build a secure",
+              "ai-ready microsoft",
+              "copilot readiness",
+              "microsoft teams management",
+              "azure active directory management",
+              "office 365 migration"
             ]
           }
         ]
@@ -1101,168 +1159,197 @@
       "id": "phi_003",
       "code_driven": true,
       "code_logic": {
-        "type": "multi_proximity",
-        "pairs": [
+        "type": "all_of",
+        "operations": [
           {
-            "words": [
-              "verify",
-              "account"
-            ],
-            "max_distance": 50
+            "type": "multi_proximity",
+            "pairs": [
+              {
+                "words": [
+                  "verify",
+                  "account"
+                ],
+                "max_distance": 50
+              },
+              {
+                "words": [
+                  "verify",
+                  "information"
+                ],
+                "max_distance": 50
+              },
+              {
+                "words": [
+                  "verify",
+                  "identity"
+                ],
+                "max_distance": 50
+              },
+              {
+                "words": [
+                  "suspended",
+                  "365"
+                ],
+                "max_distance": 50
+              },
+              {
+                "words": [
+                  "suspended",
+                  "account"
+                ],
+                "max_distance": 50
+              },
+              {
+                "words": [
+                  "suspended",
+                  "office"
+                ],
+                "max_distance": 50
+              },
+              {
+                "words": [
+                  "update",
+                  "office"
+                ],
+                "max_distance": 50
+              },
+              {
+                "words": [
+                  "update",
+                  "microsoft"
+                ],
+                "max_distance": 50
+              },
+              {
+                "words": [
+                  "update",
+                  "365"
+                ],
+                "max_distance": 50
+              },
+              {
+                "words": [
+                  "secure",
+                  "microsoft"
+                ],
+                "max_distance": 50
+              },
+              {
+                "words": [
+                  "secure",
+                  "account"
+                ],
+                "max_distance": 50
+              },
+              {
+                "words": [
+                  "account",
+                  "security"
+                ],
+                "max_distance": 50
+              },
+              {
+                "words": [
+                  "security",
+                  "verification"
+                ],
+                "max_distance": 50
+              },
+              {
+                "words": [
+                  "security",
+                  "alert"
+                ],
+                "max_distance": 50
+              },
+              {
+                "words": [
+                  "login",
+                  "microsoft"
+                ],
+                "max_distance": 50
+              },
+              {
+                "words": [
+                  "microsoft",
+                  "login"
+                ],
+                "max_distance": 50
+              },
+              {
+                "words": [
+                  "microsoft",
+                  "authentication"
+                ],
+                "max_distance": 50
+              },
+              {
+                "words": [
+                  "authentication",
+                  "microsoft"
+                ],
+                "max_distance": 50
+              },
+              {
+                "words": [
+                  "office",
+                  "365"
+                ],
+                "max_distance": 50
+              },
+              {
+                "words": [
+                  "365",
+                  "login"
+                ],
+                "max_distance": 50
+              },
+              {
+                "words": [
+                  "office",
+                  "login"
+                ],
+                "max_distance": 50
+              },
+              {
+                "words": [
+                  "365",
+                  "suspended"
+                ],
+                "max_distance": 50
+              },
+              {
+                "words": [
+                  "office",
+                  "suspended"
+                ],
+                "max_distance": 50
+              }
+            ]
           },
           {
-            "words": [
-              "verify",
-              "information"
-            ],
-            "max_distance": 50
-          },
-          {
-            "words": [
-              "verify",
-              "identity"
-            ],
-            "max_distance": 50
-          },
-          {
-            "words": [
-              "suspended",
-              "365"
-            ],
-            "max_distance": 50
-          },
-          {
-            "words": [
-              "suspended",
-              "account"
-            ],
-            "max_distance": 50
-          },
-          {
-            "words": [
-              "suspended",
-              "office"
-            ],
-            "max_distance": 50
-          },
-          {
-            "words": [
-              "update",
-              "office"
-            ],
-            "max_distance": 50
-          },
-          {
-            "words": [
-              "update",
-              "microsoft"
-            ],
-            "max_distance": 50
-          },
-          {
-            "words": [
-              "update",
-              "365"
-            ],
-            "max_distance": 50
-          },
-          {
-            "words": [
-              "secure",
-              "microsoft"
-            ],
-            "max_distance": 50
-          },
-          {
-            "words": [
-              "secure",
-              "account"
-            ],
-            "max_distance": 50
-          },
-          {
-            "words": [
-              "account",
-              "security"
-            ],
-            "max_distance": 50
-          },
-          {
-            "words": [
-              "security",
-              "verification"
-            ],
-            "max_distance": 50
-          },
-          {
-            "words": [
-              "security",
-              "alert"
-            ],
-            "max_distance": 50
-          },
-          {
-            "words": [
-              "login",
-              "microsoft"
-            ],
-            "max_distance": 50
-          },
-          {
-            "words": [
-              "microsoft",
-              "login"
-            ],
-            "max_distance": 50
-          },
-          {
-            "words": [
-              "microsoft",
-              "authentication"
-            ],
-            "max_distance": 50
-          },
-          {
-            "words": [
-              "authentication",
-              "microsoft"
-            ],
-            "max_distance": 50
-          },
-          {
-            "words": [
-              "office",
-              "365"
-            ],
-            "max_distance": 50
-          },
-          {
-            "words": [
-              "365",
-              "login"
-            ],
-            "max_distance": 50
-          },
-          {
-            "words": [
-              "office",
-              "login"
-            ],
-            "max_distance": 50
-          },
-          {
-            "words": [
-              "365",
-              "suspended"
-            ],
-            "max_distance": 50
-          },
-          {
-            "words": [
-              "office",
-              "suspended"
-            ],
-            "max_distance": 50
+            "type": "not_if_contains",
+            "prohibited": [
+              "migration tool",
+              "governance tool",
+              "management platform",
+              "consulting service",
+              "microsoft partner",
+              "solutions provider",
+              "microsoft 365 migration",
+              "microsoft 365 governance",
+              "sharepoint migration",
+              "tenant migration",
+              "tenant-to-tenant migration",
+              "microsoft 365 management",
+              "microsoft 365 solutions",
+              "build a secure",
+              "ai-ready microsoft",
+              "copilot readiness",
+              "microsoft teams management",
+              "azure active directory management",
+              "office 365 migration"
+            ]
           }
         ]
       },
@@ -1327,48 +1414,77 @@
         "type": "all_of",
         "operations": [
           {
-            "type": "multi_proximity",
-            "pairs": [
+            "type": "all_of",
+            "operations": [
               {
-                "words": [
-                  "microsoft",
-                  "login"
-                ],
-                "max_distance": 750
+                "type": "multi_proximity",
+                "pairs": [
+                  {
+                    "words": [
+                      "microsoft",
+                      "login"
+                    ],
+                    "max_distance": 750
+                  },
+                  {
+                    "words": [
+                      "office",
+                      "sign in"
+                    ],
+                    "max_distance": 750
+                  },
+                  {
+                    "words": [
+                      "365",
+                      "authentication"
+                    ],
+                    "max_distance": 750
+                  }
+                ]
               },
               {
-                "words": [
-                  "office",
-                  "sign in"
+                "type": "has_but_not",
+                "required": [
+                  "login",
+                  "sign"
                 ],
-                "max_distance": 750
-              },
-              {
-                "words": [
-                  "365",
-                  "authentication"
-                ],
-                "max_distance": 750
+                "prohibited": [
+                  "sign in with microsoft",
+                  "continue with microsoft",
+                  "sso",
+                  "oauth",
+                  ".auth/login/",
+                  "easy auth",
+                  "discussion",
+                  "forum",
+                  "tutorial",
+                  "documentation"
+                ]
               }
             ]
           },
           {
-            "type": "has_but_not",
-            "required": [
-              "login",
-              "sign"
-            ],
+            "type": "not_if_contains",
             "prohibited": [
-              "sign in with microsoft",
-              "continue with microsoft",
-              "sso",
-              "oauth",
-              ".auth/login/",
-              "easy auth",
-              "discussion",
-              "forum",
-              "tutorial",
-              "documentation"
+              "migration tool",
+              "governance tool",
+              "management platform",
+              "consulting service",
+              "microsoft partner",
+              "solutions provider",
+              "microsoft 365 migration",
+              "microsoft 365 governance",
+              "sharepoint migration",
+              "tenant migration",
+              "tenant-to-tenant migration",
+              "microsoft 365 management",
+              "microsoft 365 solutions",
+              "build a secure",
+              "ai-ready microsoft",
+              "copilot readiness",
+              "microsoft teams management",
+              "azure active directory management",
+              "office 365 migration"
             ]
           }
         ]
