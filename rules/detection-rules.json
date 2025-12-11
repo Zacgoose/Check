@@ -54,8 +54,7 @@
       "^https:\\/\\/(?:[^/]*\\.)?zoom\\.us(/.*)?$",
       "^https:\\/\\/github\\.com(/.*)?$",
       "^https:\\/\\/[^/]*\\.github\\.com(/.*)?$",
-      "^https:\\/\\/[^/]*\\.github\\.io(/.*)?$",
-      "^https:\\/\\/(?:[^/]*\\.)?sharegate\\.com(/.*)?$"
+      "^https:\\/\\/[^/]*\\.github\\.io(/.*)?$"
     ],
     "context_indicators": {
       "description": "Additional context that indicates legitimate discussion vs phishing",
