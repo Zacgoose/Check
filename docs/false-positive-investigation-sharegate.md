@@ -262,8 +262,40 @@ These should be downgraded to "supporting evidence" and not trigger alone:
 - Detection rules: `/rules/detection-rules.json`
 - Content script: `/scripts/content.js`
 
+## Final Results
+
+### Rules Fixed: 11 total
+
+#### Business Context Exclusions Added: 7 rules
+1. ✅ phi_002 - Microsoft security team impersonation
+2. ✅ phi_003 - Phishing keyword proximity
+3. ✅ phi_006 - Microsoft-branded login form
+4. ✅ phi_013_form_action_mismatch - Form action validation
+5. ✅ phi_014_devtools_blocking - DevTools detection
+6. ✅ phi_015_code_obfuscation - Code obfuscation patterns
+7. ✅ phi_017_microsoft_brand_abuse - Brand abuse detection
+
+#### Weak Indicators Downgraded: 4 rules
+1. ✅ phi_023_css_selection_blocking: high/block → low/warn
+2. ✅ phi_025_honeypot_fields: high/block → low/warn
+3. ✅ phi_029_fake_dead_links: high/block → medium/warn
+4. ✅ phi_030_empty_tag_obfuscation: high/block → medium/warn
+
+### Expected Impact on ShareGate
+- **Before**: 19 threats, many critical/high severity
+- **After**: 0-2 low-severity warnings (supporting evidence only)
+- **No allowlist needed**: Fixed root cause in detection logic
+
+### Commits
+1. `fa1e29c` - Fix phi_001_enhanced URL check (later reverted - was not the cause)
+2. `06f84fc` - Add business context indicators (later removed from exclusion list)
+3. `8b21b93` - Add business context exclusions to rules
+4. `befd0f8` - Restore original phi_001_enhanced regex (correct version)
+5. `c9509ab` - Final fixes: business context + downgrade weak indicators
+
 ## Author & Date
-- Investigation: Copilot Agent
+- Investigation: Copilot Agent  
 - Date: 2025-12-11
 - Branch: `copilot/investigate-false-positive-detection`
 - Related Issue: ShareGate false positive investigation
+- Status: ✅ RESOLVED (without allowlist)
