@@ -1474,10 +1474,11 @@ if (window.checkExtensionLoaded) {
       }
 
       // Calculate hasElements (looser threshold for element presence)
+      // Use configured thresholds instead of hardcoded values
       const hasElements =
         primaryFound > 0 ||
-        totalWeight >= 4 ||
-        (totalElements >= 3 && totalWeight >= 3);
+        totalWeight >= minWeight ||
+        (totalElements >= minTotal && totalWeight >= minWeight);
 
       // Logging
       if (isLogonPage) {
