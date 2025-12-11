@@ -36,7 +36,7 @@
     "^https:\\/\\/([^.]+\\.)*live\\.com(/.*)?$"
   ],
   "exclusion_system": {
-    "description": "Centralized exclusion system to prevent false positives on legitimate sites",
+    "description": "Centralized exclusion system to prevent false positives on legitimate sites (Microsoft partners, SSO providers, major platforms)",
     "domain_patterns": [
       "^https:\\/\\/[^/]*\\.cipp\\.app(/.*)?$",
       "^https:\\/\\/(.*\\.)?cyberdrain\\.com(/.*)?$",
@@ -54,11 +54,27 @@
       "^https:\\/\\/(?:[^/]*\\.)?zoom\\.us(/.*)?$",
       "^https:\\/\\/github\\.com(/.*)?$",
       "^https:\\/\\/[^/]*\\.github\\.com(/.*)?$",
-      "^https:\\/\\/[^/]*\\.github\\.io(/.*)?$"
+      "^https:\\/\\/[^/]*\\.github\\.io(/.*)?$",
+      "^https:\\/\\/(?:[^/]*\\.)?sharegate\\.com(/.*)?$"
     ],
     "context_indicators": {
       "description": "Additional context that indicates legitimate discussion vs phishing",
-      "legitimate_contexts": [],
+      "legitimate_contexts": [
+        "migration tool",
+        "governance tool",
+        "management platform",
+        "consulting services",
+        "microsoft partner",
+        "microsoft 365 solutions",
+        "microsoft 365 migration",
+        "microsoft 365 governance",
+        "sharepoint migration",
+        "tenant migration",
+        "tenant-to-tenant",
+        "cloud migration",
+        "microsoft 365 management",
+        "copilot readiness"
+      ],
       "legitimate_sso_patterns": [],
       "suspicious_contexts": [
         "verify now",
