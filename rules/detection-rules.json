@@ -849,67 +849,96 @@
       "id": "phi_014_devtools_blocking",
       "code_driven": true,
       "code_logic": {
-        "type": "obfuscation_check",
-        "indicators": [
-          "debugger",
-          "devtools",
-          "devtool",
-          "F12",
-          "f12",
-          "contextmenu",
-          "selectstart",
-          "dragstart",
-          "setInterval(function(){debugger;}",
-          "setInterval(function(){debugger}",
-          "while(true){debugger;}",
-          "while(true){debugger}",
-          "while(1){debugger",
-          "keyCode === 123",
-          "keyCode==123",
-          "keyCode == 123",
-          "which === 123",
-          "which==123",
-          "which == 123",
-          "keyCode===0x7b",
-          "keyCode==0x7b",
-          "keyCode == 0x7b",
-          "console.clear()",
-          "console.clear",
-          "addEventListener('contextmenu'",
-          "addEventListener(\"contextmenu\"",
-          "oncontextmenu=\"return false\"",
-          "oncontextmenu='return false'",
-          "onselectstart=\"return false\"",
-          "onselectstart='return false'",
-          "ondragstart=\"return false\"",
-          "ondragstart='return false'",
-          "function(_0x",
-          "_0x506b",
-          "_0x",
-          "ctrlKey&&",
-          "shiftKey&&",
-          "preventDefault().*console",
-          "preventDefault().*error",
-          "attempt mitigated",
-          "Inspect element attempt mitigated",
-          "Console attempt mitigated",
-          "Right-click attempt mitigated",
-          "F12 attempt mitigated",
-          "DevTools attempt mitigated",
-          "antiDebug",
-          "anti-debug",
-          "enableSecurityFeatures",
-          "blockDevTools",
-          "detectDevTools",
-          "setInterval.*redirect",
-          "document.onkeydown",
-          "document.onkeypress",
-          "window.onkeydown",
-          "event.ctrlKey",
-          "event.shiftKey",
-          "event.keyCode"
-        ],
-        "min_matches": 2
+        "type": "all_of",
+        "operations": [
+          {
+            "type": "obfuscation_check",
+            "indicators": [
+              "debugger",
+              "devtools",
+              "devtool",
+              "F12",
+              "f12",
+              "contextmenu",
+              "selectstart",
+              "dragstart",
+              "setInterval(function(){debugger;}",
+              "setInterval(function(){debugger}",
+              "while(true){debugger;}",
+              "while(true){debugger}",
+              "while(1){debugger",
+              "keyCode === 123",
+              "keyCode==123",
+              "keyCode == 123",
+              "which === 123",
+              "which==123",
+              "which == 123",
+              "keyCode===0x7b",
+              "keyCode==0x7b",
+              "keyCode == 0x7b",
+              "console.clear()",
+              "console.clear",
+              "addEventListener('contextmenu'",
+              "addEventListener(\"contextmenu\"",
+              "oncontextmenu=\"return false\"",
+              "oncontextmenu='return false'",
+              "onselectstart=\"return false\"",
+              "onselectstart='return false'",
+              "ondragstart=\"return false\"",
+              "ondragstart='return false'",
+              "function(_0x",
+              "_0x506b",
+              "_0x",
+              "ctrlKey&&",
+              "shiftKey&&",
+              "preventDefault().*console",
+              "preventDefault().*error",
+              "attempt mitigated",
+              "Inspect element attempt mitigated",
+              "Console attempt mitigated",
+              "Right-click attempt mitigated",
+              "F12 attempt mitigated",
+              "DevTools attempt mitigated",
+              "antiDebug",
+              "anti-debug",
+              "enableSecurityFeatures",
+              "blockDevTools",
+              "detectDevTools",
+              "setInterval.*redirect",
+              "document.onkeydown",
+              "document.onkeypress",
+              "window.onkeydown",
+              "event.ctrlKey",
+              "event.shiftKey",
+              "event.keyCode"
+            ],
+            "min_matches": 2
+          },
+          {
+            "type": "not_if_contains",
+            "prohibited": [
+              "migration tool",
+              "governance tool",
+              "management platform",
+              "consulting service",
+              "microsoft partner",
+              "solutions provider",
+              "microsoft 365 migration",
+              "microsoft 365 governance",
+              "sharepoint migration",
+              "tenant migration",
+              "tenant-to-tenant migration",
+              "microsoft 365 management",
+              "microsoft 365 solutions",
+              "build a secure",
+              "ai-ready microsoft",
+              "copilot readiness",
+              "microsoft teams management",
+              "azure active directory management",
+              "office 365 migration"
+            ]
+          }
+        ]
       },
       "severity": "high",
       "description": "Page attempts to block or detect developer tools usage",
@@ -924,43 +953,72 @@
         "type": "all_of",
         "operations": [
           {
-            "type": "obfuscation_check",
-            "indicators": [
-              "eval(atob(",
-              "eval(unescape(",
-              "eval(decodeURIComponent(",
-              "eval (atob(",
-              "eval (unescape(",
-              "Function(atob(",
-              "Function(unescape(",
-              "new Function(atob(",
-              "new Function(unescape(",
-              "setInterval(eval(",
-              "setTimeout(eval(",
-              "setInterval(atob(",
-              "setTimeout(atob(",
-              "document.write(atob(",
-              "document.write(unescape(",
-              "document.write(decodeURIComponent(",
-              ".innerHTML=atob(",
-              ".innerHTML=unescape(",
-              ".innerHTML=eval(",
-              "String.fromCharCode",
-              "fromCharCode"
-            ],
-            "min_matches": 1
+            "type": "all_of",
+            "operations": [
+              {
+                "type": "obfuscation_check",
+                "indicators": [
+                  "eval(atob(",
+                  "eval(unescape(",
+                  "eval(decodeURIComponent(",
+                  "eval (atob(",
+                  "eval (unescape(",
+                  "Function(atob(",
+                  "Function(unescape(",
+                  "new Function(atob(",
+                  "new Function(unescape(",
+                  "setInterval(eval(",
+                  "setTimeout(eval(",
+                  "setInterval(atob(",
+                  "setTimeout(atob(",
+                  "document.write(atob(",
+                  "document.write(unescape(",
+                  "document.write(decodeURIComponent(",
+                  ".innerHTML=atob(",
+                  ".innerHTML=unescape(",
+                  ".innerHTML=eval(",
+                  "String.fromCharCode",
+                  "fromCharCode"
+                ],
+                "min_matches": 1
+              },
+              {
+                "type": "substring_present",
+                "values": [
+                  "microsoft",
+                  "office",
+                  "365",
+                  "login",
+                  "password",
+                  "credential",
+                  "signin",
+                  "sign-in"
+                ]
+              }
+            ]
           },
           {
-            "type": "substring_present",
-            "values": [
-              "microsoft",
-              "office",
-              "365",
-              "login",
-              "password",
-              "credential",
-              "signin",
-              "sign-in"
+            "type": "not_if_contains",
+            "prohibited": [
+              "migration tool",
+              "governance tool",
+              "management platform",
+              "consulting service",
+              "microsoft partner",
+              "solutions provider",
+              "microsoft 365 migration",
+              "microsoft 365 governance",
+              "sharepoint migration",
+              "tenant migration",
+              "tenant-to-tenant migration",
+              "microsoft 365 management",
+              "microsoft 365 solutions",
+              "build a secure",
+              "ai-ready microsoft",
+              "copilot readiness",
+              "microsoft teams management",
+              "azure active directory management",
+              "office 365 migration"
             ]
           }
         ]
@@ -1022,80 +1080,109 @@
         "type": "all_of",
         "operations": [
           {
-            "type": "substring_present",
-            "values": [
-              "microsoft",
-              "office",
-              "365",
-              "outlook",
-              "azure"
-            ]
-          },
-          {
-            "type": "any_of",
+            "type": "all_of",
             "operations": [
               {
-                "type": "substring_proximity",
-                "word1": "security",
-                "word2": "team",
-                "max_distance": 300
+                "type": "substring_present",
+                "values": [
+                  "microsoft",
+                  "office",
+                  "365",
+                  "outlook",
+                  "azure"
+                ]
               },
               {
-                "type": "substring_proximity",
-                "word1": "security",
-                "word2": "department",
-                "max_distance": 300
+                "type": "any_of",
+                "operations": [
+                  {
+                    "type": "substring_proximity",
+                    "word1": "security",
+                    "word2": "team",
+                    "max_distance": 300
+                  },
+                  {
+                    "type": "substring_proximity",
+                    "word1": "security",
+                    "word2": "department",
+                    "max_distance": 300
+                  },
+                  {
+                    "type": "substring_proximity",
+                    "word1": "security",
+                    "word2": "support",
+                    "max_distance": 300
+                  },
+                  {
+                    "type": "substring_proximity",
+                    "word1": "verification",
+                    "word2": "team",
+                    "max_distance": 300
+                  },
+                  {
+                    "type": "substring_proximity",
+                    "word1": "verification",
+                    "word2": "department",
+                    "max_distance": 300
+                  },
+                  {
+                    "type": "substring_proximity",
+                    "word1": "account",
+                    "word2": "team",
+                    "max_distance": 300
+                  },
+                  {
+                    "type": "substring_proximity",
+                    "word1": "account",
+                    "word2": "support",
+                    "max_distance": 300
+                  }
+                ]
               },
               {
-                "type": "substring_proximity",
-                "word1": "security",
-                "word2": "support",
-                "max_distance": 300
-              },
-              {
-                "type": "substring_proximity",
-                "word1": "verification",
-                "word2": "team",
-                "max_distance": 300
-              },
-              {
-                "type": "substring_proximity",
-                "word1": "verification",
-                "word2": "department",
-                "max_distance": 300
-              },
-              {
-                "type": "substring_proximity",
-                "word1": "account",
-                "word2": "team",
-                "max_distance": 300
-              },
-              {
-                "type": "substring_proximity",
-                "word1": "account",
-                "word2": "support",
-                "max_distance": 300
+                "type": "has_but_not",
+                "required": [
+                  "team",
+                  "department",
+                  "support"
+                ],
+                "prohibited": [
+                  "sign in with microsoft",
+                  "continue with microsoft",
+                  "login with microsoft",
+                  "sso",
+                  "oauth",
+                  "third party auth",
+                  "third-party auth",
+                  ".auth/login/",
+                  "azure static web apps",
+                  "easy auth"
+                ]
               }
             ]
           },
           {
-            "type": "has_but_not",
-            "required": [
-              "team",
-              "department",
-              "support"
-            ],
+            "type": "not_if_contains",
             "prohibited": [
-              "sign in with microsoft",
-              "continue with microsoft",
-              "login with microsoft",
-              "sso",
-              "oauth",
-              "third party auth",
-              "third-party auth",
-              ".auth/login/",
-              "azure static web apps",
-              "easy auth"
+              "migration tool",
+              "governance tool",
+              "management platform",
+              "consulting service",
+              "microsoft partner",
+              "solutions provider",
+              "microsoft 365 migration",
+              "microsoft 365 governance",
+              "sharepoint migration",
+              "tenant migration",
+              "tenant-to-tenant migration",
+              "microsoft 365 management",
+              "microsoft 365 solutions",
+              "build a secure",
+              "ai-ready microsoft",
+              "copilot readiness",
+              "microsoft teams management",
+              "azure active directory management",
+              "office 365 migration"
             ]
           }
         ]
@@ -1458,9 +1545,9 @@
           "-ms-user-select: none"
         ]
       },
-      "severity": "high",
-      "description": "CSS prevents text selection - anti-analysis technique",
-      "action": "block",
+      "severity": "low",
+      "description": "CSS prevents text selection - anti-analysis technique (supporting evidence - should not block alone)",
+      "action": "warn",
       "category": "anti_analysis",
       "confidence": 0.85
     },
@@ -1478,9 +1565,9 @@
       "id": "phi_025_honeypot_fields",
       "pattern": "(?:position\\s*:\\s*absolute\\s*!important\\s*;[^}]*left\\s*:\\s*\\-9999px)|(?:visibility\\s*:\\s*hidden\\s*!important)|(?:opacity\\s*:\\s*0\\s*!important[^}]*width\\s*:\\s*0)",
       "flags": "i",
-      "severity": "high",
-      "description": "Honeypot fields used to detect and filter automated bot submissions",
-      "action": "block",
+      "severity": "low",
+      "description": "Honeypot fields used to detect and filter automated bot submissions (supporting evidence - should not block alone)",
+      "action": "warn",
       "category": "anti_analysis",
       "confidence": 0.9
     },
@@ -1495,9 +1582,9 @@
         "flags": "i",
         "min_count": 1
       },
-      "severity": "high",
-      "description": "Obfuscated links with empty tags - phishing technique",
-      "action": "block",
+      "severity": "medium",
+      "description": "Obfuscated links with empty tags - phishing technique (supporting evidence - should not block alone)",
+      "action": "warn",
       "category": "suspicious_structure",
       "confidence": 0.95
     },
@@ -1513,9 +1600,9 @@
         "flags": "i",
         "min_count": 1
       },
-      "severity": "high",
-      "description": "Multiple empty tags used to obfuscate text",
-      "action": "block",
+      "severity": "medium",
+      "description": "Multiple empty tags used to obfuscate text (supporting evidence - should not block alone)",
+      "action": "warn",
       "category": "text_obfuscation",
       "confidence": 0.9
     }
