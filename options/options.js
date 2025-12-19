@@ -1390,10 +1390,6 @@ class CheckOptions {
       if (cached && cached.rules) {
         // Use cached rules which reflect the actual loaded configuration
         this.currentConfigData = cached.rules;
-        this.currentConfigData._cacheMetadata = {
-          lastUpdate: cached.lastUpdate,
-          source: cached.source
-        };
         this.updateConfigDisplay();
         return;
       }
