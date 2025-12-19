@@ -590,8 +590,11 @@
         // Show source if available from cache metadata
         if (config._cacheMetadata && config._cacheMetadata.source) {
             const sourceUrl = config._cacheMetadata.source;
-            const isDefault = sourceUrl.includes('chrome-extension://') || sourceUrl.includes('moz-extension://');
-            const sourceLabel = isDefault ? 'Default (packaged)' : sourceUrl;
+            // Check if source is from extension package (default) or external
+            const isExtensionUrl = sourceUrl.includes('chrome-extension://') || 
+                                   sourceUrl.includes('moz-extension://') || 
+                                   sourceUrl.includes('/rules/detection-rules.json');
+            const sourceLabel = isExtensionUrl ? 'Default (packaged)' : sourceUrl;
             keySettingsUl.innerHTML += `<li><strong>Rules Source:</strong> <span style="font-size: 0.9em; word-break: break-all;">${sourceLabel}</span></li>`;
         }
         
