@@ -579,6 +579,22 @@
         keySettingsUl.innerHTML = '';
         if (config.version) keySettingsUl.innerHTML += `<li><strong>Rules Version:</strong> ${config.version}</li>`;
         if (config.lastUpdated) keySettingsUl.innerHTML += `<li><strong>Last Updated:</strong> ${config.lastUpdated}</li>`;
+        
+        // Show last sync timestamp if available from cache metadata
+        if (config._cacheMetadata && config._cacheMetadata.lastUpdate) {
+            const lastSync = new Date(config._cacheMetadata.lastUpdate);
+            const timeAgo = formatTimeAgo(lastSync);
+            keySettingsUl.innerHTML += `<li><strong>Last Synced:</strong> ${lastSync.toLocaleString()} (${timeAgo})</li>`;
+        }
+        
+        // Show source if available from cache metadata
+        if (config._cacheMetadata && config._cacheMetadata.source) {
+            const sourceUrl = config._cacheMetadata.source;
+            const isDefault = sourceUrl.includes('chrome-extension://') || sourceUrl.includes('moz-extension://');
+            const sourceLabel = isDefault ? 'Default (packaged)' : sourceUrl;
+            keySettingsUl.innerHTML += `<li><strong>Rules Source:</strong> <span style="font-size: 0.9em; word-break: break-all;">${sourceLabel}</span></li>`;
+        }
+        
         if (config.detection_settings && config.detection_settings.block_threshold !== undefined) {
             keySettingsUl.innerHTML += `<li><strong>Block Threshold:</strong> ${config.detection_settings.block_threshold}</li>`;
         }
@@ -586,6 +602,29 @@
             keySettingsUl.innerHTML += `<li><strong>Warn Threshold:</strong> ${config.detection_settings.warn_threshold}</li>`;
         }
     }
+    
+    // Helper function to format time ago
+    function formatTimeAgo(date) {
+        const seconds = Math.floor((new Date() - date) / 1000);
+        
+        if (seconds < 60) return 'just now';
+        
+        const minutes = Math.floor(seconds / 60);
+        if (minutes < 60) return `${minutes} minute${minutes !== 1 ? 's' : ''} ago`;
+        
+        const hours = Math.floor(minutes / 60);
+        if (hours < 24) return `${hours} hour${hours !== 1 ? 's' : ''} ago`;
+        
+        const days = Math.floor(hours / 24);
+        if (days < 30) return `${days} day${days !== 1 ? 's' : ''} ago`;
+        
+        const months = Math.floor(days / 30);
+        if (months < 12) return `${months} month${months !== 1 ? 's' : ''} ago`;
+        
+        const years = Math.floor(months / 12);
+        return `${years} year${years !== 1 ? 's' : ''} ago`;
+    }
+    
     // Patch into config loading logic
     (function() {
         const origShowConfig = window.showConfigDisplay;
