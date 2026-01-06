@@ -15,7 +15,7 @@ export class ConfigManager {
 
   /**
    * Deep merge utility for configuration objects
-   * Properly handles nested objects and arrays
+   * Properly handles nested objects and arrays with prototype pollution protection
    */
   deepMerge(target, ...sources) {
     if (!sources.length) return target;
@@ -32,6 +32,16 @@ export class ConfigManager {
     }
 
     for (const key in source) {
+      // Protect against prototype pollution
+      if (!Object.prototype.hasOwnProperty.call(source, key)) {
+        continue;
+      }
+      
+      // Block dangerous keys that could lead to prototype pollution
+      if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
+        continue;
+      }
+
       if (this.isObject(source[key])) {
         if (!target[key]) {
           target[key] = {};
