@@ -13,6 +13,35 @@ export class ConfigManager {
     this.enterpriseConfig = null;
   }
 
+  /**
+   * Deep merge utility for configuration objects
+   * Properly handles nested objects and arrays
+   */
+  deepMerge(target, ...sources) {
+    if (!sources.length) return target;
+    const source = sources.shift();
+
+    if (this.isObject(target) && this.isObject(source)) {
+      for (const key in source) {
+        if (this.isObject(source[key])) {
+          if (!target[key]) Object.assign(target, { [key]: {} });
+          this.deepMerge(target[key], source[key]);
+        } else {
+          Object.assign(target, { [key]: source[key] });
+        }
+      }
+    }
+
+    return this.deepMerge(target, ...sources);
+  }
+
+  /**
+   * Check if a value is a plain object
+   */
+  isObject(item) {
+    return item && typeof item === 'object' && !Array.isArray(item);
+  }
+
   async loadConfig() {
     try {
       // Safe wrapper for chrome.* operations
@@ -204,19 +233,19 @@ export class ConfigManager {
     let finalBrandingConfig = brandingConfig;
     if (enterpriseConfig.customBranding) {
       // Enterprise custom branding takes precedence over file-based branding
-      finalBrandingConfig = {
-        ...brandingConfig,
-        ...enterpriseConfig.customBranding,
-      };
+      finalBrandingConfig = this.deepMerge(
+        {},
+        brandingConfig,
+        enterpriseConfig.customBranding
+      );
     }
 
-    // Merge in order of precedence: enterprise > local > branding > default
-    const merged = {
-      ...defaultConfig,
-      ...finalBrandingConfig,
-      ...localConfig,
-      ...enterpriseConfig,
-    };
+    // Use deep merge for proper nested object handling
+    // Merge in order of precedence: default -> branding -> local -> enterprise
+    let merged = this.deepMerge({}, defaultConfig);
+    merged = this.deepMerge(merged, finalBrandingConfig || {});
+    merged = this.deepMerge(merged, localConfig || {});
+    merged = this.deepMerge(merged, enterpriseConfig || {});
 
     // Fix customRulesUrl precedence - user-saved value should override defaults but NOT enterprise
     if (!enterpriseConfig?.customRulesUrl) {
@@ -305,6 +334,13 @@ export class ConfigManager {
       enableCippReporting: false,
       cippServerUrl: "",
       cippTenantId: "",
+
+      // Generic webhook configuration
+      genericWebhook: {
+        enabled: false,
+        url: "",
+        events: [],
+      },
 
       // Feature flags
       features: {

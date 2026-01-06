@@ -235,3 +235,90 @@ test('ConfigManager - merge precedence', async (t) => {
   delete global.fetch;
   teardownGlobalChrome();
 });
+
+test('ConfigManager - deep merge for nested objects', async (t) => {
+  const chromeMock = setupGlobalChrome();
+  
+  global.fetch = async () => ({
+    ok: false,
+    status: 404
+  });
+
+  const { ConfigManager } = await import('../scripts/modules/config-manager.js');
+
+  await t.test('should deep merge genericWebhook configuration from enterprise policy', async () => {
+    const configManager = new ConfigManager();
+    
+    // Set enterprise policy with genericWebhook
+    chromeMock.storage.managed.set({
+      enableCippReporting: true,
+      cippServerUrl: 'https://cipp.example.com',
+      cippTenantId: 'tenant-123',
+      genericWebhook: {
+        enabled: true,
+        url: 'https://webhook.example.com/endpoint',
+        events: ['detection_alert', 'page_blocked', 'threat_detected']
+      }
+    });
+    
+    const config = await configManager.loadConfig();
+    
+    // Verify CIPP settings are applied
+    assert.strictEqual(config.enableCippReporting, true, 'CIPP reporting should be enabled');
+    assert.strictEqual(config.cippServerUrl, 'https://cipp.example.com', 'CIPP URL should be set');
+    assert.strictEqual(config.cippTenantId, 'tenant-123', 'CIPP tenant ID should be set');
+    
+    // Verify genericWebhook is properly merged
+    assert.ok(config.genericWebhook, 'genericWebhook should exist in config');
+    assert.strictEqual(config.genericWebhook.enabled, true, 'Webhook should be enabled');
+    assert.strictEqual(config.genericWebhook.url, 'https://webhook.example.com/endpoint', 'Webhook URL should be set');
+    assert.ok(Array.isArray(config.genericWebhook.events), 'Webhook events should be an array');
+    assert.strictEqual(config.genericWebhook.events.length, 3, 'Webhook should have 3 events');
+    assert.ok(config.genericWebhook.events.includes('detection_alert'), 'Should include detection_alert event');
+  });
+
+  await t.test('should preserve default genericWebhook when not in enterprise policy', async () => {
+    const configManager = new ConfigManager();
+    
+    // Set enterprise policy without genericWebhook
+    chromeMock.storage.managed.set({
+      enableCippReporting: true,
+      cippServerUrl: 'https://cipp.example.com',
+      cippTenantId: 'tenant-456'
+    });
+    
+    const config = await configManager.loadConfig();
+    
+    // Verify genericWebhook defaults are preserved
+    assert.ok(config.genericWebhook, 'genericWebhook should exist in config');
+    assert.strictEqual(config.genericWebhook.enabled, false, 'Webhook should be disabled by default');
+    assert.strictEqual(config.genericWebhook.url, '', 'Webhook URL should be empty by default');
+    assert.ok(Array.isArray(config.genericWebhook.events), 'Webhook events should be an array');
+    assert.strictEqual(config.genericWebhook.events.length, 0, 'Webhook should have no events by default');
+  });
+
+  await t.test('should deep merge partial genericWebhook configuration', async () => {
+    const configManager = new ConfigManager();
+    
+    // Set enterprise policy with partial genericWebhook (only enabled and url, no events)
+    chromeMock.storage.managed.set({
+      genericWebhook: {
+        enabled: true,
+        url: 'https://webhook.partial.com/endpoint'
+      }
+    });
+    
+    const config = await configManager.loadConfig();
+    
+    // Verify partial merge works correctly
+    assert.ok(config.genericWebhook, 'genericWebhook should exist in config');
+    assert.strictEqual(config.genericWebhook.enabled, true, 'Webhook should be enabled');
+    assert.strictEqual(config.genericWebhook.url, 'https://webhook.partial.com/endpoint', 'Webhook URL should be set');
+    // Events should still be an empty array from defaults since it wasn't in enterprise config
+    assert.ok(Array.isArray(config.genericWebhook.events), 'Webhook events should be an array');
+    assert.strictEqual(config.genericWebhook.events.length, 0, 'Webhook should have no events when not specified');
+  });
+
+  delete global.fetch;
+  teardownGlobalChrome();
+});
