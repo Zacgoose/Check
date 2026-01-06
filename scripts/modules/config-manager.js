@@ -21,14 +21,24 @@ export class ConfigManager {
     if (!sources.length) return target;
     const source = sources.shift();
 
-    if (this.isObject(target) && this.isObject(source)) {
-      for (const key in source) {
-        if (this.isObject(source[key])) {
-          if (!target[key]) Object.assign(target, { [key]: {} });
-          this.deepMerge(target[key], source[key]);
-        } else {
-          Object.assign(target, { [key]: source[key] });
+    // If source is not an object, skip it and continue with remaining sources
+    if (!this.isObject(source)) {
+      return this.deepMerge(target, ...sources);
+    }
+
+    // Ensure target is an object
+    if (!this.isObject(target)) {
+      target = {};
+    }
+
+    for (const key in source) {
+      if (this.isObject(source[key])) {
+        if (!target[key]) {
+          target[key] = {};
         }
+        this.deepMerge(target[key], source[key]);
+      } else {
+        target[key] = source[key];
       }
     }
 
