@@ -13,55 +13,6 @@ export class ConfigManager {
     this.enterpriseConfig = null;
   }
 
-  /**
-   * Deep merge utility for configuration objects
-   * Properly handles nested objects and arrays with prototype pollution protection
-   */
-  deepMerge(target, ...sources) {
-    if (!sources.length) return target;
-    const source = sources.shift();
-
-    // If source is not an object, skip it and continue with remaining sources
-    if (!this.isObject(source)) {
-      return this.deepMerge(target, ...sources);
-    }
-
-    // Ensure target is an object
-    if (!this.isObject(target)) {
-      target = {};
-    }
-
-    for (const key in source) {
-      // Protect against prototype pollution
-      if (!Object.prototype.hasOwnProperty.call(source, key)) {
-        continue;
-      }
-      
-      // Block dangerous keys that could lead to prototype pollution
-      if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
-        continue;
-      }
-
-      if (this.isObject(source[key])) {
-        if (!target[key]) {
-          target[key] = {};
-        }
-        this.deepMerge(target[key], source[key]);
-      } else {
-        target[key] = source[key];
-      }
-    }
-
-    return this.deepMerge(target, ...sources);
-  }
-
-  /**
-   * Check if a value is a plain object
-   */
-  isObject(item) {
-    return item && typeof item === 'object' && !Array.isArray(item);
-  }
-
   async loadConfig() {
     try {
       // Safe wrapper for chrome.* operations
@@ -253,19 +204,19 @@ export class ConfigManager {
     let finalBrandingConfig = brandingConfig;
     if (enterpriseConfig.customBranding) {
       // Enterprise custom branding takes precedence over file-based branding
-      finalBrandingConfig = this.deepMerge(
-        {},
-        brandingConfig,
-        enterpriseConfig.customBranding
-      );
+      finalBrandingConfig = {
+        ...brandingConfig,
+        ...enterpriseConfig.customBranding,
+      };
     }
 
-    // Use deep merge for proper nested object handling
-    // Merge in order of precedence: default -> branding -> local -> enterprise
-    let merged = this.deepMerge({}, defaultConfig);
-    merged = this.deepMerge(merged, finalBrandingConfig || {});
-    merged = this.deepMerge(merged, localConfig || {});
-    merged = this.deepMerge(merged, enterpriseConfig || {});
+    // Merge in order of precedence: enterprise > local > branding > default
+    const merged = {
+      ...defaultConfig,
+      ...finalBrandingConfig,
+      ...localConfig,
+      ...enterpriseConfig,
+    };
 
     // Fix customRulesUrl precedence - user-saved value should override defaults but NOT enterprise
     if (!enterpriseConfig?.customRulesUrl) {
@@ -354,13 +305,6 @@ export class ConfigManager {
       enableCippReporting: false,
       cippServerUrl: "",
       cippTenantId: "",
-
-      // Generic webhook configuration
-      genericWebhook: {
-        enabled: false,
-        url: "",
-        events: [],
-      },
 
       // Feature flags
       features: {
