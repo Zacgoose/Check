@@ -115,6 +115,36 @@
                 
                 This helps identify which tenant/organization the security event originated from when using a shared CIPP instance.
             </string>
+            <!-- Generic Webhook - Edge -->
+            <string id="CheckGenericWebhookEnabled">Enable generic webhook</string>
+            <string id="CheckGenericWebhookEnabled_Explain">
+                This policy controls whether the Check extension sends selected security events to a custom webhook endpoint.
+                
+                When enabled: Events listed in "Generic webhook event types" are sent to the configured Generic Webhook URL.
+                When disabled (default): No generic webhook events are sent.
+                
+                Note: Requires Generic Webhook URL and at least one event type.
+            </string>
+            <string id="CheckGenericWebhookUrl">Generic webhook URL</string>
+            <string id="CheckGenericWebhookUrl_Explain">
+                This policy specifies the URL for a custom webhook endpoint that receives Check event payloads.
+                
+                Example: https://webhook.yourcompany.com/check-events
+                
+                This setting is only used when generic webhook is enabled.
+            </string>
+            <string id="CheckGenericWebhookEvents">Generic webhook event types</string>
+            <string id="CheckGenericWebhookEvents_Explain">
+                This policy specifies which event types are sent to the generic webhook endpoint.
+                
+                Supported values:
+                - detection_alert
+                - false_positive_report
+                - page_blocked
+                - rogue_app_detected
+                - threat_detected
+                - validation_event
+            </string>
             <!-- Custom Rules URL -->
             <string id="CheckCustomRulesUrl">Custom detection rules URL</string>
             <string id="CheckCustomRulesUrl_Explain">
@@ -300,6 +330,36 @@
                 
                 This helps identify which tenant/organization the security event originated from when using a shared CIPP instance.
             </string>
+            <!-- Generic Webhook - Chrome -->
+            <string id="CheckGenericWebhookEnabledChrome">Enable generic webhook (Chrome)</string>
+            <string id="CheckGenericWebhookEnabledChrome_Explain">
+                This policy controls whether the Check extension sends selected security events to a custom webhook endpoint in Google Chrome.
+                
+                When enabled: Events listed in "Generic webhook event types (Chrome)" are sent to the configured Generic Webhook URL.
+                When disabled (default): No generic webhook events are sent.
+                
+                Note: Requires Generic Webhook URL and at least one event type.
+            </string>
+            <string id="CheckGenericWebhookUrlChrome">Generic webhook URL (Chrome)</string>
+            <string id="CheckGenericWebhookUrlChrome_Explain">
+                This policy specifies the URL for a custom webhook endpoint that receives Check event payloads from Google Chrome.
+                
+                Example: https://webhook.yourcompany.com/check-events
+                
+                This setting is only used when generic webhook is enabled.
+            </string>
+            <string id="CheckGenericWebhookEventsChrome">Generic webhook event types (Chrome)</string>
+            <string id="CheckGenericWebhookEventsChrome_Explain">
+                This policy specifies which event types are sent to the generic webhook endpoint from Google Chrome.
+                
+                Supported values:
+                - detection_alert
+                - false_positive_report
+                - page_blocked
+                - rogue_app_detected
+                - threat_detected
+                - validation_event
+            </string>
             <!-- Custom Rules URL - Chrome -->
             <string id="CheckCustomRulesUrlChrome">Custom detection rules URL (Chrome)</string>
             <string id="CheckCustomRulesUrlChrome_Explain">
@@ -387,6 +447,14 @@
                     <label>Tenant Identifier:</label>
                 </textBox>
             </presentation>
+            <presentation id="CheckGenericWebhookUrl">
+                <textBox refId="GenericWebhookUrl">
+                    <label>Generic Webhook URL:</label>
+                </textBox>
+            </presentation>
+            <presentation id="CheckGenericWebhookEvents">
+                <listBox refId="GenericWebhookEventsList">Generic Webhook Event Types:</listBox>
+            </presentation>
             <presentation id="CheckCustomRulesUrl">
                 <textBox refId="CustomRulesUrl">
                     <label>Custom Rules URL:</label>
@@ -443,6 +511,14 @@
                 <textBox refId="CippTenantIdChrome">
                     <label>Tenant Identifier:</label>
                 </textBox>
+            </presentation>
+            <presentation id="CheckGenericWebhookUrlChrome">
+                <textBox refId="GenericWebhookUrlChrome">
+                    <label>Generic Webhook URL:</label>
+                </textBox>
+            </presentation>
+            <presentation id="CheckGenericWebhookEventsChrome">
+                <listBox refId="GenericWebhookEventsListChrome">Generic Webhook Event Types:</listBox>
             </presentation>
             <presentation id="CheckCustomRulesUrlChrome">
                 <textBox refId="CustomRulesUrlChrome">
