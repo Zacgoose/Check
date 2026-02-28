@@ -246,12 +246,13 @@ test('ConfigManager - branding links for manual and enterprise config', async (t
 
   const { ConfigManager } = await import('../scripts/modules/config-manager.js');
 
-  await t.test('should honor explicit support/privacy URLs from enterprise custom branding', async () => {
+  await t.test('should honor explicit support/privacy/about URLs from enterprise custom branding', async () => {
     chromeMock.storage.managed.set({
       customBranding: {
         companyURL: 'https://enterprise.example',
         supportUrl: 'https://enterprise.example/support',
-        privacyPolicyUrl: 'https://enterprise.example/privacy'
+        privacyPolicyUrl: 'https://enterprise.example/privacy',
+        aboutUrl: 'https://enterprise.example/about'
       }
     });
 
@@ -260,6 +261,7 @@ test('ConfigManager - branding links for manual and enterprise config', async (t
 
     assert.strictEqual(branding.supportUrl, 'https://enterprise.example/support');
     assert.strictEqual(branding.privacyPolicyUrl, 'https://enterprise.example/privacy');
+    assert.strictEqual(branding.aboutUrl, 'https://enterprise.example/about');
   });
 
   await t.test('should derive support/privacy links from supportEmail/companyURL when URLs are not set', async () => {
@@ -275,6 +277,7 @@ test('ConfigManager - branding links for manual and enterprise config', async (t
 
     assert.strictEqual(branding.supportUrl, 'mailto:help@manual.example');
     assert.strictEqual(branding.privacyPolicyUrl, 'https://manual.example');
+    assert.strictEqual(branding.aboutUrl, 'https://check.com/about');
   });
 
   delete global.fetch;

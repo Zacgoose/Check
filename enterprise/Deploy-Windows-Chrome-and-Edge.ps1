@@ -36,6 +36,7 @@ $productName = "Check - Phishing Protection" # This will set the "Product Name" 
 $supportEmail = "" # This will set the "Support Email" option in the Custom Branding settings; default is blank.
 $supportUrl = "" # This will set the "Support URL" option in the Custom Branding settings; default is blank.
 $privacyPolicyUrl = "" # This will set the "Privacy URL" option in the Custom Branding settings; default is blank.
+$aboutUrl = "" # This will set the "About URL" option in the Custom Branding settings; default is blank.
 $primaryColor = "#F77F00" # This will set the "Primary Color" option in the Custom Branding settings; default is "#F77F00"; must be a valid hex color code (e.g., #FFFFFF).
 $logoUrl = "" # This will set the "Logo URL" option in the Custom Branding settings; default is blank. Must be a valid URL including the protocol (e.g., https://example.com/logo.png); protocol must be https; recommended size is 48x48 pixels with a maximum of 128x128.
 
@@ -97,6 +98,7 @@ function Configure-ExtensionSettings {
     New-ItemProperty -Path $customBrandingKey -Name "supportEmail" -PropertyType String -Value $supportEmail -Force | Out-Null
     New-ItemProperty -Path $customBrandingKey -Name "supportUrl" -PropertyType String -Value $supportUrl -Force | Out-Null
     New-ItemProperty -Path $customBrandingKey -Name "privacyPolicyUrl" -PropertyType String -Value $privacyPolicyUrl -Force | Out-Null
+    New-ItemProperty -Path $customBrandingKey -Name "aboutUrl" -PropertyType String -Value $aboutUrl -Force | Out-Null
     New-ItemProperty -Path $customBrandingKey -Name "primaryColor" -PropertyType String -Value $primaryColor -Force | Out-Null
     New-ItemProperty -Path $customBrandingKey -Name "logoUrl" -PropertyType String -Value $logoUrl -Force | Out-Null
 

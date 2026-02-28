@@ -159,6 +159,13 @@
           "format": "uri",
           "default": ""
         },
+        "aboutUrl": {
+          "title": "About URL",
+          "description": "URL opened by the popup About link",
+          "type": "string",
+          "format": "uri",
+          "default": ""
+        },
         "primaryColor": {
           "title": "Primary Color",
           "description": "Primary theme color (hex code)",

@@ -100,6 +100,7 @@ class CheckOptions {
     this.elements.supportEmail = document.getElementById("supportEmail");
     this.elements.supportUrl = document.getElementById("supportUrl");
     this.elements.privacyPolicyUrl = document.getElementById("privacyPolicyUrl");
+    this.elements.aboutUrl = document.getElementById("aboutUrl");
     this.elements.primaryColor = document.getElementById("primaryColor");
     this.elements.logoUrl = document.getElementById("logoUrl");
     this.elements.brandingPreview = document.getElementById("brandingPreview");
@@ -191,6 +192,7 @@ class CheckOptions {
       this.elements.productName,
       this.elements.supportUrl,
       this.elements.privacyPolicyUrl,
+      this.elements.aboutUrl,
       this.elements.primaryColor,
       this.elements.logoUrl,
     ];
@@ -484,6 +486,7 @@ class CheckOptions {
         productName: "Check",
         supportUrl: "https://support.cyberdrain.com",
         privacyPolicyUrl: "https://cyberdrain.com/privacy",
+        aboutUrl: "https://cyberdrain.com/about",
         primaryColor: "#F77F00",
         logoUrl: "images/icon48.png",
       };
@@ -495,6 +498,7 @@ class CheckOptions {
         productName: "Check",
         supportUrl: "https://support.cyberdrain.com",
         privacyPolicyUrl: "https://cyberdrain.com/privacy",
+        aboutUrl: "https://cyberdrain.com/about",
         primaryColor: "#F77F00",
         logoUrl: "images/icon48.png",
       };
@@ -1025,6 +1029,7 @@ class CheckOptions {
     this.elements.supportUrl.value = this.brandingConfig?.supportUrl || "";
     this.elements.privacyPolicyUrl.value =
       this.brandingConfig?.privacyPolicyUrl || "";
+    this.elements.aboutUrl.value = this.brandingConfig?.aboutUrl || "";
     this.elements.primaryColor.value =
     this.brandingConfig?.primaryColor || "#F77F00";
     this.elements.logoUrl.value = this.brandingConfig?.logoUrl || "";
@@ -1355,6 +1360,7 @@ class CheckOptions {
       supportEmail: this.elements.supportEmail.value,
       supportUrl: this.elements.supportUrl.value,
       privacyPolicyUrl: this.elements.privacyPolicyUrl.value,
+      aboutUrl: this.elements.aboutUrl.value,
       primaryColor: this.elements.primaryColor.value,
       logoUrl: this.elements.logoUrl.value,
     };
@@ -2474,6 +2480,7 @@ class CheckOptions {
             productName: "Check Enterprise",
             supportUrl: "https://support.cyberdrain.com",
             privacyPolicyUrl: "https://cyberdrain.com/privacy",
+            aboutUrl: "https://cyberdrain.com/about",
             primaryColor: "#F77F00",
             logoUrl:
               "https://cyberdrain.com/images/favicon_hu_20e77b0e20e363e.png",
@@ -2618,6 +2625,7 @@ class CheckOptions {
       supportEmail: this.elements.supportEmail,
       supportUrl: this.elements.supportUrl,
       privacyPolicyUrl: this.elements.privacyPolicyUrl,
+      aboutUrl: this.elements.aboutUrl,
       primaryColor: this.elements.primaryColor,
       logoUrl: this.elements.logoUrl,
     };

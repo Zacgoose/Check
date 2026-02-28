@@ -222,6 +222,13 @@
                 
                 Example: https://contoso.com/privacy
             </string>
+            <!-- About URL -->
+            <string id="CheckAboutUrl">About URL</string>
+            <string id="CheckAboutUrl_Explain">
+                This policy specifies the about URL opened by the extension About link.
+                
+                Example: https://contoso.com/about
+            </string>
             <!-- Primary Color -->
             <string id="CheckPrimaryColor">Primary theme color</string>
             <string id="CheckPrimaryColor_Explain">
@@ -385,6 +392,13 @@
                 
                 Example: https://contoso.com/privacy
             </string>
+            <!-- About URL - Chrome -->
+            <string id="CheckAboutUrlChrome">About URL (Chrome)</string>
+            <string id="CheckAboutUrlChrome_Explain">
+                This policy specifies the about URL opened by the extension About link in Google Chrome.
+                
+                Example: https://contoso.com/about
+            </string>
             <!-- Primary Color - Chrome -->
             <string id="CheckPrimaryColorChrome">Primary theme color (Chrome)</string>
             <string id="CheckPrimaryColorChrome_Explain">
@@ -462,6 +476,11 @@
                     <label>Privacy URL:</label>
                 </textBox>
             </presentation>
+            <presentation id="CheckAboutUrl">
+                <textBox refId="AboutUrl">
+                    <label>About URL:</label>
+                </textBox>
+            </presentation>
             <presentation id="CheckPrimaryColor">
                 <textBox refId="PrimaryColor">
                     <label>Primary Color (hex code):</label>
@@ -519,6 +538,11 @@
             <presentation id="CheckPrivacyPolicyUrlChrome">
                 <textBox refId="PrivacyPolicyUrlChrome">
                     <label>Privacy URL:</label>
+                </textBox>
+            </presentation>
+            <presentation id="CheckAboutUrlChrome">
+                <textBox refId="AboutUrlChrome">
+                    <label>About URL:</label>
                 </textBox>
             </presentation>
             <presentation id="CheckPrimaryColorChrome">

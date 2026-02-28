@@ -203,6 +203,15 @@
       </elements>
     </policy>
 
+    <!-- About URL -->
+    <policy name="CheckAboutUrl" class="Machine" displayName="$(string.CheckAboutUrl)" explainText="$(string.CheckAboutUrl_Explain)" key="SOFTWARE\Policies\Microsoft\Edge\3rdparty\extensions\knepjpocdagponkonnbggpcnhnaikajg\policy\customBranding" presentation="$(presentation.CheckAboutUrl)">
+      <parentCategory ref="CheckExtensionEdge" />
+      <supportedOn ref="SUPPORTED_WIN7" />
+      <elements>
+        <text id="AboutUrl" valueName="aboutUrl" />
+      </elements>
+    </policy>
+
     <!-- Primary Color -->
     <policy name="CheckPrimaryColor" class="Machine" displayName="$(string.CheckPrimaryColor)" explainText="$(string.CheckPrimaryColor_Explain)" key="SOFTWARE\Policies\Microsoft\Edge\3rdparty\extensions\knepjpocdagponkonnbggpcnhnaikajg\policy\customBranding" presentation="$(presentation.CheckPrimaryColor)">
       <parentCategory ref="CheckExtensionEdge" />
@@ -411,6 +420,15 @@
       <supportedOn ref="SUPPORTED_WIN7" />
       <elements>
         <text id="PrivacyPolicyUrlChrome" valueName="privacyPolicyUrl" />
+      </elements>
+    </policy>
+
+    <!-- About URL - Chrome -->
+    <policy name="CheckAboutUrlChrome" class="Machine" displayName="$(string.CheckAboutUrlChrome)" explainText="$(string.CheckAboutUrlChrome_Explain)" key="SOFTWARE\Policies\Google\Chrome\3rdparty\extensions\benimdeioplgkhanklclahllklceahbe\policy\customBranding" presentation="$(presentation.CheckAboutUrlChrome)">
+      <parentCategory ref="CheckExtensionChrome" />
+      <supportedOn ref="SUPPORTED_WIN7" />
+      <elements>
+        <text id="AboutUrlChrome" valueName="aboutUrl" />
       </elements>
     </policy>
 

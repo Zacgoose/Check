@@ -120,6 +120,7 @@ export class ConfigManager {
             productName: "Check Enterprise",
             supportUrl: "https://support.cyberdrain.com",
             privacyPolicyUrl: "https://cyberdrain.com/privacy",
+            aboutUrl: "https://cyberdrain.com/about",
             primaryColor: "#F77F00",
             logoUrl:
               "https://cyberdrain.com/images/favicon_hu_20e77b0e20e363e.png",
@@ -336,6 +337,7 @@ export class ConfigManager {
       supportEmail: "support@check.com",
       supportUrl: "https://support.check.com",
       privacyPolicyUrl: "https://check.com/privacy",
+      aboutUrl: "https://check.com/about",
       termsOfServiceUrl: "https://check.com/terms",
 
       // Customizable text

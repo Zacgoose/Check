@@ -389,6 +389,7 @@ class CheckPopup {
         logoUrl: "images/icon32.png",
         supportUrl: "https://support.cyberdrain.com",
         privacyPolicyUrl: "https://cyberdrain.com/privacy",
+        aboutUrl: "https://cyberdrain.com/about",
         primaryColor: "#F77F00",
       };
     } catch (error) {
@@ -400,6 +401,7 @@ class CheckPopup {
         logoUrl: "images/icon32.png",
         supportUrl: "https://support.cyberdrain.com",
         privacyPolicyUrl: "https://cyberdrain.com/privacy",
+        aboutUrl: "https://cyberdrain.com/about",
         primaryColor: "#F77F00",
       };
     }
@@ -449,6 +451,9 @@ class CheckPopup {
     }
     if (this.brandingConfig.privacyPolicyUrl) {
       this.elements.privacyLink.href = this.brandingConfig.privacyPolicyUrl;
+    }
+    if (this.brandingConfig.aboutUrl) {
+      this.elements.aboutLink.href = this.brandingConfig.aboutUrl;
     }
 
     // Apply primary color if available
@@ -1093,7 +1098,9 @@ class CheckPopup {
         url = this.brandingConfig.privacyPolicyUrl;
         break;
       case "about":
-        url = chrome.runtime.getURL("options/options.html#about");
+        url =
+          this.brandingConfig.aboutUrl ||
+          chrome.runtime.getURL("options/options.html#about");
         break;
       case "company":
         url = this.brandingConfig.companyURL;

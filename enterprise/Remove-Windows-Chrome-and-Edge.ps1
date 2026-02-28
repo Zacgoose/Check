@@ -68,6 +68,7 @@ function Remove-ExtensionSettings {
                 "supportEmail",
                 "supportUrl",
                 "privacyPolicyUrl",
+                "aboutUrl",
                 "primaryColor",
                 "logoUrl"
             )
