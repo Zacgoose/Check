@@ -18,9 +18,9 @@
                 "customRulesUrl": "",
                 "updateInterval": 24,
                 "enableDebugLogging": false,
-          "customBranding": {
-            "companyName": "",
-            "productName": "",
+                "customBranding": {
+                    "companyName": "",
+                    "productName": "",
                     "supportEmail": "",
                     "supportUrl": "",
                     "privacyPolicyUrl": "",
