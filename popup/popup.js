@@ -67,7 +67,6 @@ class CheckPopup {
     this.elements.aboutLink = document.getElementById("aboutLink");
     this.elements.companyBranding = document.getElementById("companyBranding");
     this.elements.companyName = document.getElementById("companyName");
-    this.elements.companyLink = document.getElementById("companyLink");
 
     // Debug section
     this.elements.debugSection = document.getElementById("debugSection");
@@ -143,9 +142,6 @@ class CheckPopup {
     );
     this.elements.aboutLink.addEventListener("click", (e) =>
       this.handleFooterLink(e, "about")
-    );
-    this.elements.companyLink.addEventListener("click", (e) =>
-      this.handleFooterLink(e, "company")
     );
 
     // Notification close listener
@@ -384,7 +380,6 @@ class CheckPopup {
       console.warn("Popup: Using fallback branding configuration");
       this.brandingConfig = {
         companyName: "CyberDrain",
-        companyURL: "https://cyberdrain.com/",
         productName: "Check",
         logoUrl: "images/icon32.png",
         supportUrl: "https://support.cyberdrain.com",
@@ -396,7 +391,6 @@ class CheckPopup {
       console.error("Error loading branding configuration:", error);
       this.brandingConfig = {
         companyName: "CyberDrain",
-        companyURL: "https://cyberdrain.com/",
         productName: "Check",
         logoUrl: "images/icon32.png",
         supportUrl: "https://support.cyberdrain.com",
@@ -1101,9 +1095,6 @@ class CheckPopup {
         url =
           this.brandingConfig.aboutUrl ||
           chrome.runtime.getURL("options/options.html#about");
-        break;
-      case "company":
-        url = this.brandingConfig.companyURL;
         break;
     }
 

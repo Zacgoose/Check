@@ -18,10 +18,9 @@
                 "customRulesUrl": "",
                 "updateInterval": 24,
                 "enableDebugLogging": false,
-                "customBranding": {
-                    "companyName": "",
-                    "companyURL": "https://cyberdrain.com/",
-                    "productName": "",
+          "customBranding": {
+            "companyName": "",
+            "productName": "",
                     "supportEmail": "",
                     "supportUrl": "",
                     "privacyPolicyUrl": "",

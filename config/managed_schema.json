@@ -126,12 +126,6 @@
           "type": "string",
           "default": ""
         },
-		"companyURL": {
-          "title": "Company URL",
-          "description": "Company URL used in the extension",
-          "type": "string",
-          "default": "https://cyberdrain.com/"
-        },
         "productName": {
           "title": "Product Name",
           "description": "Custom name for the extension",

@@ -158,15 +158,6 @@
       </elements>
     </policy>
 
-    <!-- Company URL -->
-    <policy name="CheckCompanyUrl" class="Machine" displayName="$(string.CheckCompanyUrl)" explainText="$(string.CheckCompanyUrl_Explain)" key="SOFTWARE\Policies\Microsoft\Edge\3rdparty\extensions\knepjpocdagponkonnbggpcnhnaikajg\policy\customBranding" presentation="$(presentation.CheckCompanyUrl)">
-      <parentCategory ref="CheckExtensionEdge" />
-      <supportedOn ref="SUPPORTED_WIN7" />
-      <elements>
-        <text id="CompanyUrl" valueName="companyURL" />
-      </elements>
-    </policy>
-
     <!-- Product Name -->
     <policy name="CheckProductName" class="Machine" displayName="$(string.CheckProductName)" explainText="$(string.CheckProductName_Explain)" key="SOFTWARE\Policies\Microsoft\Edge\3rdparty\extensions\knepjpocdagponkonnbggpcnhnaikajg\policy\customBranding" presentation="$(presentation.CheckProductName)">
       <parentCategory ref="CheckExtensionEdge" />
@@ -375,15 +366,6 @@
       <supportedOn ref="SUPPORTED_WIN7" />
       <elements>
         <text id="CompanyNameChrome" valueName="companyName" />
-      </elements>
-    </policy>
-
-    <!-- Company URL - Chrome -->
-    <policy name="CheckCompanyUrlChrome" class="Machine" displayName="$(string.CheckCompanyUrlChrome)" explainText="$(string.CheckCompanyUrlChrome_Explain)" key="SOFTWARE\Policies\Google\Chrome\3rdparty\extensions\benimdeioplgkhanklclahllklceahbe\policy\customBranding" presentation="$(presentation.CheckCompanyUrlChrome)">
-      <parentCategory ref="CheckExtensionChrome" />
-      <supportedOn ref="SUPPORTED_WIN7" />
-      <elements>
-        <text id="CompanyUrlChrome" valueName="companyURL" />
       </elements>
     </policy>
 

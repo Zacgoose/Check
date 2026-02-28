@@ -181,15 +181,6 @@
                 
                 The company name appears in the extension popup and settings pages.
             </string>
-            <!-- Company URL -->
-            <string id="CheckCompanyUrl">Company URL</string>
-            <string id="CheckCompanyUrl_Explain">
-                This policy specifies the company URL used in the extension for branding and navigation purposes.
-                
-                Example: https://contoso.com
-                
-                The company URL is used for linking back to the company website from the extension interface.
-            </string>
             <!-- Product Name -->
             <string id="CheckProductName">Product name</string>
             <string id="CheckProductName_Explain">
@@ -351,15 +342,6 @@
                 
                 The company name appears in the extension popup and settings pages.
             </string>
-            <!-- Company URL - Chrome -->
-            <string id="CheckCompanyUrlChrome">Company URL (Chrome)</string>
-            <string id="CheckCompanyUrlChrome_Explain">
-                This policy specifies the company URL used in the extension for branding and navigation purposes in Google Chrome.
-                
-                Example: https://contoso.com
-                
-                The company URL is used for linking back to the company website from the extension interface.
-            </string>
             <!-- Product Name - Chrome -->
             <string id="CheckProductNameChrome">Product name (Chrome)</string>
             <string id="CheckProductNameChrome_Explain">
@@ -451,11 +433,6 @@
                     <label>Company Name:</label>
                 </textBox>
             </presentation>
-            <presentation id="CheckCompanyUrl">
-                <textBox refId="CompanyUrl">
-                    <label>Company URL:</label>
-                </textBox>
-            </presentation>
             <presentation id="CheckProductName">
                 <textBox refId="ProductName">
                     <label>Product Name:</label>
@@ -513,11 +490,6 @@
             <presentation id="CheckCompanyNameChrome">
                 <textBox refId="CompanyNameChrome">
                     <label>Company Name:</label>
-                </textBox>
-            </presentation>
-            <presentation id="CheckCompanyUrlChrome">
-                <textBox refId="CompanyUrlChrome">
-                    <label>Company URL:</label>
                 </textBox>
             </presentation>
             <presentation id="CheckProductNameChrome">

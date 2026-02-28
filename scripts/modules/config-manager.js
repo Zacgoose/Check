@@ -116,7 +116,6 @@ export class ConfigManager {
           // Custom branding (matches managed_schema.json structure)
           customBranding: {
             companyName: "CyberDrain",
-            companyURL: "https://cyberdrain.com/",
             productName: "Check Enterprise",
             supportUrl: "https://support.cyberdrain.com",
             privacyPolicyUrl: "https://cyberdrain.com/privacy",
@@ -489,12 +488,9 @@ export class ConfigManager {
       finalBranding.genericWebhook = currentConfig.genericWebhook;
     }
 
-    // Derive support/privacy URLs when only partial branding is configured
+    // Derive support URL when only partial branding is configured
     if (!finalBranding.supportUrl && finalBranding.supportEmail) {
       finalBranding.supportUrl = `mailto:${finalBranding.supportEmail}`;
-    }
-    if (!finalBranding.privacyPolicyUrl && finalBranding.companyURL) {
-      finalBranding.privacyPolicyUrl = finalBranding.companyURL;
     }
 
     return finalBranding;

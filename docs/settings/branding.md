@@ -30,9 +30,8 @@ If some settings do not appear on your version, it means your organization's IT 
 You can customize the following properties:
 
 1. **Company Name** - Enter your organization's name. This appears in the extension interface and blocked page messages (displayed as "Protected by \[Company Name]").
-2. **Company URL** - Your company website URL (e.g., `https://yourcompany.com`). Used in extension branding and contact information. _(Firefox: required, Chrome/Edge: optional)_
-3. **Product Name** - What you want to call the extension (like "Contoso Security" instead of "Check"). This replaces the default "Check" branding throughout the interface.
-4. **Support Email** - Where users should go for help. This email address is used in the "Contact Admin" button when phishing sites are blocked.
+2. **Product Name** - What you want to call the extension (like "Contoso Security" instead of "Check"). This replaces the default "Check" branding throughout the interface.
+3. **Support Email** - Where users should go for help. This email address is used in the "Contact Admin" button when phishing sites are blocked.
 
 ## Visual Customization
 
@@ -106,7 +105,6 @@ For Firefox deployments, configure branding through the `policies.json` file:
         "check@cyberdrain.com": {
           "customBranding": {
             "companyName": "Your Company",
-            "companyURL": "https://yourcompany.com",
             "productName": "Security Extension",
             "supportEmail": "security@example.com",
             "primaryColor": "#FF5733",
@@ -201,7 +199,6 @@ Enterprise policies always take precedence over manual settings.
 
 * Uses extension ID: `check@cyberdrain.com`
 * Configuration is managed through `policies.json` file
-* Supports additional `companyURL` property
 * Policies file location varies by operating system
 
 ### Chrome & Edge
@@ -305,7 +302,6 @@ Logo URL: https://assets.globalmfg.com/security/gmi-logo-48.png
         "check@cyberdrain.com": {
           "customBranding": {
             "companyName": "Contoso Corporation",
-            "companyURL": "https://contoso.com",
             "productName": "Contoso Defender",
             "logoUrl": "https://contoso.com/assets/logo.png",
             "primaryColor": "#0078D4",

@@ -26,7 +26,6 @@ $testConfig = @{
 # Custom branding test values
 $testBranding = @{
   companyName = "Test Company"
-  companyURL = "https://example.com"
   productName = "Test Product"
   supportEmail = "test@example.com"
   primaryColor = "#FF6B00"

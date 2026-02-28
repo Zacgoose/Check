@@ -31,7 +31,6 @@ $webhookEvents = @() # This will set the "Event Types" to send to the webhook; d
 
 # Custom Branding Settings
 $companyName = "CyberDrain" # This will set the "Company Name" option in the Custom Branding settings; default is "CyberDrain".
-$companyURL = "https://cyberdrain.com" # This will set the Company URL option in the Custom Branding settings; default is "https://cyberdrain.com"; Must include the protocol (e.g., https://).
 $productName = "Check - Phishing Protection" # This will set the "Product Name" option in the Custom Branding settings; default is "Check - Phishing Protection".
 $supportEmail = "" # This will set the "Support Email" option in the Custom Branding settings; default is blank.
 $supportUrl = "" # This will set the "Support URL" option in the Custom Branding settings; default is blank.
@@ -93,7 +92,6 @@ function Configure-ExtensionSettings {
 
     # Set custom branding settings
     New-ItemProperty -Path $customBrandingKey -Name "companyName" -PropertyType String -Value $companyName -Force | Out-Null
-    New-ItemProperty -Path $customBrandingKey -Name "companyURL" -PropertyType String -Value $companyURL -Force | Out-Null
     New-ItemProperty -Path $customBrandingKey -Name "productName" -PropertyType String -Value $productName -Force | Out-Null
     New-ItemProperty -Path $customBrandingKey -Name "supportEmail" -PropertyType String -Value $supportEmail -Force | Out-Null
     New-ItemProperty -Path $customBrandingKey -Name "supportUrl" -PropertyType String -Value $supportUrl -Force | Out-Null
