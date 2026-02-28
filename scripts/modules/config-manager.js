@@ -462,8 +462,12 @@ export class ConfigManager {
       await this.loadConfig();
     }
 
-    // Start with the base branding config
-    let finalBranding = await this.getBrandingConfig();
+    // Start with defaults to ensure required branding links are always available
+    const defaultBranding = this.getDefaultBrandingConfig();
+    let finalBranding = {
+      ...defaultBranding,
+      ...(await this.getBrandingConfig()),
+    };
 
     // If enterprise has custom branding, merge it in (takes precedence)
     if (this.enterpriseConfig && this.enterpriseConfig.customBranding) {
@@ -478,6 +482,14 @@ export class ConfigManager {
     const currentConfig = await this.getConfig();
     if (currentConfig.genericWebhook) {
       finalBranding.genericWebhook = currentConfig.genericWebhook;
+    }
+
+    // Derive support/privacy URLs when only partial branding is configured
+    if (!finalBranding.supportUrl && finalBranding.supportEmail) {
+      finalBranding.supportUrl = `mailto:${finalBranding.supportEmail}`;
+    }
+    if (!finalBranding.privacyPolicyUrl && finalBranding.companyURL) {
+      finalBranding.privacyPolicyUrl = finalBranding.companyURL;
     }
 
     return finalBranding;
