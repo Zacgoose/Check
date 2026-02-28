@@ -1087,15 +1087,10 @@ class CheckPopup {
     let url = "";
     switch (linkType) {
       case "support":
-        url =
-          this.brandingConfig.supportUrl ||
-          (this.brandingConfig.supportEmail
-            ? `mailto:${this.brandingConfig.supportEmail}`
-            : "");
+        url = this.brandingConfig.supportUrl;
         break;
       case "privacy":
-        url =
-          this.brandingConfig.privacyPolicyUrl || this.brandingConfig.companyURL;
+        url = this.brandingConfig.privacyPolicyUrl;
         break;
       case "about":
         url = chrome.runtime.getURL("options/options.html#about");
