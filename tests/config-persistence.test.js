@@ -272,10 +272,11 @@ test('ConfigManager - branding links for manual and enterprise config', async (t
 
     const configManager = new ConfigManager();
     const branding = await configManager.getFinalBrandingConfig();
+    const defaultBranding = configManager.getDefaultBrandingConfig();
 
     assert.strictEqual(branding.supportUrl, 'mailto:help@manual.example');
-    assert.strictEqual(branding.privacyPolicyUrl, 'https://check.com/privacy');
-    assert.strictEqual(branding.aboutUrl, 'https://check.com/about');
+    assert.strictEqual(branding.privacyPolicyUrl, defaultBranding.privacyPolicyUrl);
+    assert.strictEqual(branding.aboutUrl, defaultBranding.aboutUrl);
   });
 
   delete global.fetch;
