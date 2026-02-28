@@ -336,7 +336,7 @@ export class ConfigManager {
       supportEmail: "support@check.com",
       supportUrl: "https://support.check.com",
       privacyPolicyUrl: "https://check.com/privacy",
-      aboutUrl: "https://check.com/about",
+      aboutUrl: "",
       termsOfServiceUrl: "https://check.com/terms",
 
       // Customizable text
