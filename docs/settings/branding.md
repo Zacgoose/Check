@@ -33,7 +33,7 @@ You can customize the following properties:
 2. **Product Name** - What you want to call the extension (like "Contoso Security" instead of "Check"). This replaces the default "Check" branding throughout the interface.
 3. **Support Email** - Where users should go for help. This email address is used in the "Contact Admin" button when phishing sites are blocked.
 4. **Support URL** - URL opened by the popup **Support** link (for example, `https://support.yourcompany.com`).
-5. **Privacy URL** (`privacyPolicyUrl`) - URL opened by the popup **Privacy** link (for example, `https://yourcompany.com/privacy`).
+5. **Privacy Policy URL** (`privacyPolicyUrl`) - URL opened by the popup **Privacy** link (for example, `https://yourcompany.com/privacy`).
 6. **About URL** (`aboutUrl`) - URL opened by the popup **About** link. Leave empty to use the built-in extension About page.
 
 ## Visual Customization
