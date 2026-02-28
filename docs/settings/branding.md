@@ -63,7 +63,7 @@ The branding preview shows you exactly how your customizations will appear to us
    * Primary Color
    * Support Email
    * Support URL
-   * Privacy URL
+   * Privacy Policy URL
    * About URL
 4. Click "Save"
 
