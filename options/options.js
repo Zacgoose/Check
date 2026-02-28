@@ -486,7 +486,7 @@ class CheckOptions {
         productName: "Check",
         supportUrl: "https://support.cyberdrain.com",
         privacyPolicyUrl: "https://cyberdrain.com/privacy",
-        aboutUrl: "https://cyberdrain.com/about",
+        aboutUrl: "",
         primaryColor: "#F77F00",
         logoUrl: "images/icon48.png",
       };
@@ -498,7 +498,7 @@ class CheckOptions {
         productName: "Check",
         supportUrl: "https://support.cyberdrain.com",
         privacyPolicyUrl: "https://cyberdrain.com/privacy",
-        aboutUrl: "https://cyberdrain.com/about",
+        aboutUrl: "",
         primaryColor: "#F77F00",
         logoUrl: "images/icon48.png",
       };
@@ -2480,7 +2480,7 @@ class CheckOptions {
             productName: "Check Enterprise",
             supportUrl: "https://support.cyberdrain.com",
             privacyPolicyUrl: "https://cyberdrain.com/privacy",
-            aboutUrl: "https://cyberdrain.com/about",
+            aboutUrl: "",
             primaryColor: "#F77F00",
             logoUrl:
               "https://cyberdrain.com/images/favicon_hu_20e77b0e20e363e.png",

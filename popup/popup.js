@@ -389,7 +389,7 @@ class CheckPopup {
         logoUrl: "images/icon32.png",
         supportUrl: "https://support.cyberdrain.com",
         privacyPolicyUrl: "https://cyberdrain.com/privacy",
-        aboutUrl: "https://cyberdrain.com/about",
+        aboutUrl: "",
         primaryColor: "#F77F00",
       };
     } catch (error) {
@@ -401,7 +401,7 @@ class CheckPopup {
         logoUrl: "images/icon32.png",
         supportUrl: "https://support.cyberdrain.com",
         privacyPolicyUrl: "https://cyberdrain.com/privacy",
-        aboutUrl: "https://cyberdrain.com/about",
+        aboutUrl: "",
         primaryColor: "#F77F00",
       };
     }
