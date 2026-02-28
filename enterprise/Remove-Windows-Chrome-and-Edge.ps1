@@ -66,6 +66,8 @@ function Remove-ExtensionSettings {
                 "companyURL",
                 "productName",
                 "supportEmail",
+                "supportUrl",
+                "privacyPolicyUrl",
                 "primaryColor",
                 "logoUrl"
             )

@@ -208,6 +208,20 @@
                 
                 This email address is displayed in the extension interface and help documentation.
             </string>
+            <!-- Support URL -->
+            <string id="CheckSupportUrl">Support URL</string>
+            <string id="CheckSupportUrl_Explain">
+                This policy specifies the support URL opened by the extension Support link.
+                
+                Example: https://support.contoso.com
+            </string>
+            <!-- Privacy URL -->
+            <string id="CheckPrivacyPolicyUrl">Privacy URL</string>
+            <string id="CheckPrivacyPolicyUrl_Explain">
+                This policy specifies the privacy policy URL opened by the extension Privacy link.
+                
+                Example: https://contoso.com/privacy
+            </string>
             <!-- Primary Color -->
             <string id="CheckPrimaryColor">Primary theme color</string>
             <string id="CheckPrimaryColor_Explain">
@@ -357,6 +371,20 @@
                 
                 This email address is displayed in the extension interface and help documentation.
             </string>
+            <!-- Support URL - Chrome -->
+            <string id="CheckSupportUrlChrome">Support URL (Chrome)</string>
+            <string id="CheckSupportUrlChrome_Explain">
+                This policy specifies the support URL opened by the extension Support link in Google Chrome.
+                
+                Example: https://support.contoso.com
+            </string>
+            <!-- Privacy URL - Chrome -->
+            <string id="CheckPrivacyPolicyUrlChrome">Privacy URL (Chrome)</string>
+            <string id="CheckPrivacyPolicyUrlChrome_Explain">
+                This policy specifies the privacy policy URL opened by the extension Privacy link in Google Chrome.
+                
+                Example: https://contoso.com/privacy
+            </string>
             <!-- Primary Color - Chrome -->
             <string id="CheckPrimaryColorChrome">Primary theme color (Chrome)</string>
             <string id="CheckPrimaryColorChrome_Explain">
@@ -424,6 +452,16 @@
                     <label>Support Email:</label>
                 </textBox>
             </presentation>
+            <presentation id="CheckSupportUrl">
+                <textBox refId="SupportUrl">
+                    <label>Support URL:</label>
+                </textBox>
+            </presentation>
+            <presentation id="CheckPrivacyPolicyUrl">
+                <textBox refId="PrivacyPolicyUrl">
+                    <label>Privacy URL:</label>
+                </textBox>
+            </presentation>
             <presentation id="CheckPrimaryColor">
                 <textBox refId="PrimaryColor">
                     <label>Primary Color (hex code):</label>
@@ -471,6 +509,16 @@
             <presentation id="CheckSupportEmailChrome">
                 <textBox refId="SupportEmailChrome">
                     <label>Support Email:</label>
+                </textBox>
+            </presentation>
+            <presentation id="CheckSupportUrlChrome">
+                <textBox refId="SupportUrlChrome">
+                    <label>Support URL:</label>
+                </textBox>
+            </presentation>
+            <presentation id="CheckPrivacyPolicyUrlChrome">
+                <textBox refId="PrivacyPolicyUrlChrome">
+                    <label>Privacy URL:</label>
                 </textBox>
             </presentation>
             <presentation id="CheckPrimaryColorChrome">

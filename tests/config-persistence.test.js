@@ -235,3 +235,48 @@ test('ConfigManager - merge precedence', async (t) => {
   delete global.fetch;
   teardownGlobalChrome();
 });
+
+test('ConfigManager - branding links for manual and enterprise config', async (t) => {
+  const chromeMock = setupGlobalChrome();
+
+  global.fetch = async () => ({
+    ok: false,
+    status: 404
+  });
+
+  const { ConfigManager } = await import('../scripts/modules/config-manager.js');
+
+  await t.test('should honor explicit support/privacy URLs from enterprise custom branding', async () => {
+    chromeMock.storage.managed.set({
+      customBranding: {
+        companyURL: 'https://enterprise.example',
+        supportUrl: 'https://enterprise.example/support',
+        privacyPolicyUrl: 'https://enterprise.example/privacy'
+      }
+    });
+
+    const configManager = new ConfigManager();
+    const branding = await configManager.getFinalBrandingConfig();
+
+    assert.strictEqual(branding.supportUrl, 'https://enterprise.example/support');
+    assert.strictEqual(branding.privacyPolicyUrl, 'https://enterprise.example/privacy');
+  });
+
+  await t.test('should derive support/privacy links from supportEmail/companyURL when URLs are not set', async () => {
+    await chromeMock.storage.local.set({
+      brandingConfig: {
+        companyURL: 'https://manual.example',
+        supportEmail: 'help@manual.example'
+      }
+    });
+
+    const configManager = new ConfigManager();
+    const branding = await configManager.getFinalBrandingConfig();
+
+    assert.strictEqual(branding.supportUrl, 'mailto:help@manual.example');
+    assert.strictEqual(branding.privacyPolicyUrl, 'https://manual.example');
+  });
+
+  delete global.fetch;
+  teardownGlobalChrome();
+});

@@ -2,6 +2,8 @@
   "companyName": "CyberDrain",
   "companyURL": "https://cyberdrain.com/",
   "productName": "Check",
+  "supportUrl": "https://support.cyberdrain.com",
+  "privacyPolicyUrl": "https://cyberdrain.com/privacy",
   "version": "1.1.0",
   "description": "Protect against phishing attacks targeting Microsoft 365 login pages with enterprise-grade detection",
   "branding": {

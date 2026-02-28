@@ -98,6 +98,8 @@ class CheckOptions {
     this.elements.companyURL = document.getElementById("companyURL");
     this.elements.productName = document.getElementById("productName");
     this.elements.supportEmail = document.getElementById("supportEmail");
+    this.elements.supportUrl = document.getElementById("supportUrl");
+    this.elements.privacyPolicyUrl = document.getElementById("privacyPolicyUrl");
     this.elements.primaryColor = document.getElementById("primaryColor");
     this.elements.logoUrl = document.getElementById("logoUrl");
     this.elements.brandingPreview = document.getElementById("brandingPreview");
@@ -187,6 +189,8 @@ class CheckOptions {
       this.elements.companyName,
       this.elements.companyURL,
       this.elements.productName,
+      this.elements.supportUrl,
+      this.elements.privacyPolicyUrl,
       this.elements.primaryColor,
       this.elements.logoUrl,
     ];
@@ -476,8 +480,10 @@ class CheckOptions {
       console.warn("Options: Using fallback branding configuration");
       this.brandingConfig = {
         companyName: "CyberDrain",
-    companyURL: "https://cyberdrain.com/",
+        companyURL: "https://cyberdrain.com/",
         productName: "Check",
+        supportUrl: "https://support.cyberdrain.com",
+        privacyPolicyUrl: "https://cyberdrain.com/privacy",
         primaryColor: "#F77F00",
         logoUrl: "images/icon48.png",
       };
@@ -485,8 +491,10 @@ class CheckOptions {
       console.error("Error loading branding configuration:", error);
       this.brandingConfig = {
         companyName: "CyberDrain",
-		    companyURL: "https://cyberdrain.com/",
+        companyURL: "https://cyberdrain.com/",
         productName: "Check",
+        supportUrl: "https://support.cyberdrain.com",
+        privacyPolicyUrl: "https://cyberdrain.com/privacy",
         primaryColor: "#F77F00",
         logoUrl: "images/icon48.png",
       };
@@ -1014,6 +1022,9 @@ class CheckOptions {
     this.elements.companyURL.value = this.brandingConfig?.companyURL || "";
     this.elements.productName.value = this.brandingConfig?.productName || "";
     this.elements.supportEmail.value = this.brandingConfig?.supportEmail || "";
+    this.elements.supportUrl.value = this.brandingConfig?.supportUrl || "";
+    this.elements.privacyPolicyUrl.value =
+      this.brandingConfig?.privacyPolicyUrl || "";
     this.elements.primaryColor.value =
     this.brandingConfig?.primaryColor || "#F77F00";
     this.elements.logoUrl.value = this.brandingConfig?.logoUrl || "";
@@ -1342,6 +1353,8 @@ class CheckOptions {
       companyURL: this.elements.companyURL.value,
       productName: this.elements.productName.value,
       supportEmail: this.elements.supportEmail.value,
+      supportUrl: this.elements.supportUrl.value,
+      privacyPolicyUrl: this.elements.privacyPolicyUrl.value,
       primaryColor: this.elements.primaryColor.value,
       logoUrl: this.elements.logoUrl.value,
     };
@@ -2459,6 +2472,8 @@ class CheckOptions {
             companyName: "CyberDrain",
             companyURL: "https://cyberdrain.com/",
             productName: "Check Enterprise",
+            supportUrl: "https://support.cyberdrain.com",
+            privacyPolicyUrl: "https://cyberdrain.com/privacy",
             primaryColor: "#F77F00",
             logoUrl:
               "https://cyberdrain.com/images/favicon_hu_20e77b0e20e363e.png",
@@ -2601,6 +2616,8 @@ class CheckOptions {
       companyURL: this.elements.companyURL,
       productName: this.elements.productName,
       supportEmail: this.elements.supportEmail,
+      supportUrl: this.elements.supportUrl,
+      privacyPolicyUrl: this.elements.privacyPolicyUrl,
       primaryColor: this.elements.primaryColor,
       logoUrl: this.elements.logoUrl,
     };

@@ -23,8 +23,11 @@ Windows Registry Editor Version 5.00
 ; Custom branding configuration
 [HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Edge\3rdparty\extensions\knepjpocdagponkonnbggpcnhnaikajg\policy\customBranding]
 "companyName"="CyberDrain"
+"companyURL"="https://cyberdrain.com/"
 "productName"="Check"
 "supportEmail"=""
+"supportUrl"=""
+"privacyPolicyUrl"=""
 "primaryColor"="#F77F00"
 "logoUrl"=""
 
@@ -55,8 +58,11 @@ Windows Registry Editor Version 5.00
 ; Custom branding configuration for Chrome
 [HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Google\Chrome\3rdparty\extensions\benimdeioplgkhanklclahllklceahbe\policy\customBranding]
 "companyName"="CyberDrain"
+"companyURL"="https://cyberdrain.com/"
 "productName"="Check"
 "supportEmail"=""
+"supportUrl"=""
+"privacyPolicyUrl"=""
 "primaryColor"="#F77F00"
 "logoUrl"=""
 

@@ -116,7 +116,10 @@ export class ConfigManager {
           // Custom branding (matches managed_schema.json structure)
           customBranding: {
             companyName: "CyberDrain",
+            companyURL: "https://cyberdrain.com/",
             productName: "Check Enterprise",
+            supportUrl: "https://support.cyberdrain.com",
+            privacyPolicyUrl: "https://cyberdrain.com/privacy",
             primaryColor: "#F77F00",
             logoUrl:
               "https://cyberdrain.com/images/favicon_hu_20e77b0e20e363e.png",

@@ -145,6 +145,20 @@
           "format": "email",
           "default": ""
         },
+        "supportUrl": {
+          "title": "Support URL",
+          "description": "URL opened by the popup Support link",
+          "type": "string",
+          "format": "uri",
+          "default": ""
+        },
+        "privacyPolicyUrl": {
+          "title": "Privacy URL",
+          "description": "URL opened by the popup Privacy link",
+          "type": "string",
+          "format": "uri",
+          "default": ""
+        },
         "primaryColor": {
           "title": "Primary Color",
           "description": "Primary theme color (hex code)",
